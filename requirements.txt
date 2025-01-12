@@ -1,1 +1,2 @@
 openai==0.28
+openpyxl==3.0.10
