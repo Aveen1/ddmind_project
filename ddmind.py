@@ -3,7 +3,7 @@ import pandas as pd
 import openai
 
 #Set up OpenAI API key
-openai.api_key = "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"
+openai.api_key = "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"
 
 def extract_top_columns(file, num_columns=5):
     "Extract top columns from an uploaded Excel file"
@@ -24,7 +24,7 @@ def get_chatgpt_analysis_recommendations(sample_data):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
+            model="gpt-4o-2024-08-06",
             messages=[
                 {"role": "system", "content": "You are an expert data analyst"},
                 {"role": "user", "content": prompt},
