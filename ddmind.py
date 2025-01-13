@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 import openai
+import os
 
 #Set up OpenAI API key
-openai.api_key = "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"
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def extract_top_columns(file, num_columns=5):
     "Extract top columns from an uploaded Excel file"
