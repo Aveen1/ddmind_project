@@ -17,17 +17,18 @@ def extract_top_columns(file, num_columns=5):
         st.error(f"Error reading the Excel file: {e}")
         return None
 
-def get_chatgpt_analysis_recommendations(sample_data):
-    """Send sample data to GPT-4o and get analysis recommendations."""
+def get_chatgpt_analysis_recommendations(independent_var, dependent_var):
+    """Send selected independent and dependent variables to GPT-4o and get analysis recommendations."""
     prompt = (
-        "Here is a sample of data from an Excel sheet:\n"
-        f"{sample_data.to_string(index=False)}\n\n"
-        "Based on this sample, what analyses would you recommend or suggest that can be done?"
+        f"I have selected the following variables for analysis:\n"
+        f"Independent Variable: {independent_var}\n"
+        f"Dependent Variable: {dependent_var}\n\n"
+        "What analyses would you recommend or suggest based on these variables?"
     )
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o",  #specific model
+            model="gpt-4o",  #Use your specific model
             messages=[
                 {"role": "system", "content": "You are an expert data analyst."},
                 {"role": "user", "content": prompt},
@@ -68,7 +69,7 @@ def perform_time_series_analysis(df, dependent_var, period):
             st.error("The dataset must contain a 'Year' column for time series analysis.")
             return
 
-        # Convert 'Year' to datetime format
+        #Convert 'Year' to datetime format
         df['Year'] = pd.to_datetime(df['Year'], format='%Y', errors='coerce')
         df = df.dropna(subset=['Year'])
         df = df.set_index('Year')
@@ -129,6 +130,13 @@ def main():
                 st.write(f"Calculating Correlation between {independent_var} and {dependent_var}...")
                 correlation = df[independent_var].corr(df[dependent_var])
                 st.write(f"Correlation: {correlation}")
+
+        if st.button("Get ChatGPT Analysis Recommendations"):
+            st.write(f"Getting ChatGPT recommendations for Independent Variable: {independent_var} and Dependent Variable: {dependent_var}...")
+            recommendations = get_chatgpt_analysis_recommendations(independent_var, dependent_var)
+            if recommendations:
+                st.write("### ChatGPT Recommendations:")
+                st.write(recommendations)
 
 if __name__ == "__main__":
     main()
