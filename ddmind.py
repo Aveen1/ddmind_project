@@ -4,8 +4,9 @@ import openai
 import os
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
+import json
 
-# Set up OpenAI API key
+#Set up OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def extract_top_columns(file, num_columns=5):
@@ -17,33 +18,52 @@ def extract_top_columns(file, num_columns=5):
         st.error(f"Error reading the Excel file: {e}")
         return None
 
-def get_chatgpt_analysis_recommendations(independent_var, dependent_var):
-    """Send selected independent and dependent variables to GPT-4o and get analysis recommendations."""
+def get_chatgpt_analysis_recommendations(df):
+    """Send the entire dataset to GPT-4 and get analysis recommendations."""
     prompt = (
-        f"I have selected the following variables for analysis:\n"
-        f"Independent Variable: {independent_var}\n"
-        f"Dependent Variable: {dependent_var}\n\n"
-        "What analyses would you recommend or suggest based on these variables?"
+        "List all potential analyses and Make a table with the following columns:\n"
+        "1) Analysis Number\n"
+        "2) Analyses Title\n"
+        "3) Short Description\n"
+        "4) Recommended independent variables.\n"
+        "5) Recommended dependent variables\n"
+        "6) Time Period to select (monthly, quarterly, yearly).\n\n"
+        f"The dataset structure is:\n{df.head(5).to_string()}"
     )
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o",  #Use your specific model
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are an expert data analyst."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.7,  #Optional, adjust creativity level
+            temperature=0.7,
         )
-        return response["choices"][0]["message"]["content"].strip()
+        gpt_response = response["choices"][0]["message"]["content"].strip()
+
+        #Attempt to parse JSON from the GPT response
+        try:
+            analyses = pd.read_json(gpt_response)
+            st.dataframe(analyses)
+            return analyses
+            
+        except ValueError:
+            st.warning("GPT response is not valid JSON. Attempting to parse as structured text.")
+
+            #Parse structured table-like response
+            rows = [row.split("\t") for row in gpt_response.split("\n") if row.strip()]
+            df = pd.DataFrame(rows[1:], columns=rows[0])  #Use first row as header
+            st.dataframe(df)
+            return df
+        
     except openai.error.OpenAIError as e:
         st.error(f"OpenAI API error: {e}")
         return None
 
 def analyze_columns(df):
-    """Analyze the columns in the DataFrame"""
-    columns = list(df.columns)
-    return columns
+    """Analyze the columns in the DataFrame."""
+    return list(df.columns)
 
 #Function for Regression Analysis
 def perform_regression_analysis(df, independent_var, dependent_var):
@@ -69,7 +89,7 @@ def perform_time_series_analysis(df, dependent_var, period):
             st.error("The dataset must contain a 'Year' column for time series analysis.")
             return
 
-        #Convert 'Year' to datetime format
+        # Convert 'Year' to datetime format
         df['Year'] = pd.to_datetime(df['Year'], format='%Y', errors='coerce')
         df = df.dropna(subset=['Year'])
         df = df.set_index('Year')
@@ -102,10 +122,21 @@ def main():
 
         columns = analyze_columns(df)
 
-        #Step 2: Ask for Independent Variables
-        st.write("### Select Variables:")
-        independent_var = st.selectbox("Select Independent Variable:", columns)
-        dependent_var = st.selectbox("Select Dependent Variable:", columns)
+        #ChatGPT Button
+        if st.button("Get ChatGPT Analysis Recommendations"):
+            st.write("Getting ChatGPT recommendations based on the uploaded dataset...")
+            recommendations = get_chatgpt_analysis_recommendations(df)
+            if recommendations is not None:
+                st.write("### ChatGPT Recommendations:")
+                st.dataframe(recommendations)
+                
+
+                
+        
+        #Step 2: Ask for Independent and Dependent Variables
+        st.write("### Select Values:")
+        independent_var = st.selectbox("Select Filter", columns)
+        dependent_var = st.selectbox("Select Value", columns)
 
         #Step 3: Ask for Time Periods
         period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
@@ -114,29 +145,20 @@ def main():
         analysis_options = ["Regression Analysis", "Time Series Analysis", "Correlation Analysis"]
         analysis_choice = st.selectbox("Select Analysis Type:", analysis_options)
 
+        #Analysis Button
         if st.button("Run Analysis"):
             if analysis_choice == "Regression Analysis":
                 st.write(f"Running Regression Analysis with {independent_var} as independent and {dependent_var} as dependent variables...")
-                #regression logic
                 perform_regression_analysis(df, independent_var, dependent_var)
 
             elif analysis_choice == "Time Series Analysis":
                 st.write(f"Running Time Series Analysis with {dependent_var} over {period} periods...")
-                #time series logic
                 perform_time_series_analysis(df, dependent_var, period)
-
 
             elif analysis_choice == "Correlation Analysis":
                 st.write(f"Calculating Correlation between {independent_var} and {dependent_var}...")
                 correlation = df[independent_var].corr(df[dependent_var])
                 st.write(f"Correlation: {correlation}")
-
-        if st.button("Get ChatGPT Analysis Recommendations"):
-            st.write(f"Getting ChatGPT recommendations for Independent Variable: {independent_var} and Dependent Variable: {dependent_var}...")
-            recommendations = get_chatgpt_analysis_recommendations(independent_var, dependent_var)
-            if recommendations:
-                st.write("### ChatGPT Recommendations:")
-                st.write(recommendations)
 
 if __name__ == "__main__":
     main()
