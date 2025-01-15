@@ -4,16 +4,15 @@ import openai
 import os
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
-import json
 
-#Set up OpenAI API key
+# Set up OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def extract_top_columns(file, num_columns=5):
     """Extract columns from an uploaded Excel file."""
     try:
         df = pd.read_excel(file)
-        return df.iloc[:, :num_columns]  #Select the first 'num_columns' columns
+        return df.iloc[:, :num_columns]  # Select the first 'num_columns' columns
     except Exception as e:
         st.error(f"Error reading the Excel file: {e}")
         return None
@@ -21,13 +20,12 @@ def extract_top_columns(file, num_columns=5):
 def get_chatgpt_analysis_recommendations(df):
     """Send the entire dataset to GPT-4 and get analysis recommendations."""
     prompt = (
-        "List all potential analyses and Make a table with the following columns:\n"
-        "1) Analysis Number\n"
-        "2) Analyses Title\n"
-        "3) Short Description\n"
-        "4) Recommended independent variables.\n"
-        "5) Recommended dependent variables\n"
-        "6) Time Period to select (monthly, quarterly, yearly).\n\n"
+        "List all potential analyses (don't use sterics or dash, just highlight the title) with all this information including: \n"
+        "Analyses Title\n"
+        "Short Description\n"
+        "Recommended Filter\n"
+        "Recommended Value\n"
+        "Time Period to select (monthly, quarterly, yearly).\n\n"
         f"The dataset structure is:\n{df.head(5).to_string()}"
     )
 
@@ -41,31 +39,19 @@ def get_chatgpt_analysis_recommendations(df):
             temperature=0.7,
         )
         gpt_response = response["choices"][0]["message"]["content"].strip()
-
-        #Attempt to parse JSON from the GPT response
-        try:
-            analyses = pd.read_json(gpt_response)
-            st.dataframe(analyses)
-            return analyses
-            
-        except ValueError:
-            st.warning("GPT response is not valid JSON. Attempting to parse as structured text.")
-
-            #Parse structured table-like response
-            rows = [row.split("\t") for row in gpt_response.split("\n") if row.strip()]
-            df = pd.DataFrame(rows[1:], columns=rows[0])  #Use first row as header
-            st.dataframe(df)
-            return df
         
+        # Print GPT response as plain text
+        st.write("### ChatGPT Analysis Recommendations:")
+        st.text(gpt_response)
+
     except openai.error.OpenAIError as e:
         st.error(f"OpenAI API error: {e}")
-        return None
 
 def analyze_columns(df):
     """Analyze the columns in the DataFrame."""
     return list(df.columns)
 
-#Function for Regression Analysis
+# Function for Regression Analysis
 def perform_regression_analysis(df, independent_var, dependent_var):
     """Perform regression analysis."""
     try:
@@ -73,7 +59,7 @@ def perform_regression_analysis(df, independent_var, dependent_var):
         y = df[dependent_var]
 
         if X.ndim == 1:
-            X = sm.add_constant(X)  #Add a constant term for the intercept
+            X = sm.add_constant(X)  # Add a constant term for the intercept
 
         model = sm.OLS(y, X).fit()
         st.write("### Regression Summary:")
@@ -81,7 +67,7 @@ def perform_regression_analysis(df, independent_var, dependent_var):
     except Exception as e:
         st.error(f"Error performing regression analysis: {e}")
 
-#Function for Time Series Analysis
+# Function for Time Series Analysis
 def perform_time_series_analysis(df, dependent_var, period):
     """Perform time series analysis."""
     try:
@@ -113,7 +99,7 @@ def main():
     st.title("Excel Analysis Assistant with ChatGPT")
     st.write("Upload an Excel file, and we'll help you figure out the analyses that can be done based on the sample data.")
 
-    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
+    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls", "csv"])
 
     if uploaded_file:
         df = pd.read_excel(uploaded_file)
@@ -122,30 +108,24 @@ def main():
 
         columns = analyze_columns(df)
 
-        #ChatGPT Button
+        # ChatGPT Button
         if st.button("Get ChatGPT Analysis Recommendations"):
-            st.write("Getting ChatGPT recommendations based on the uploaded dataset...")
-            recommendations = get_chatgpt_analysis_recommendations(df)
-            if recommendations is not None:
-                st.write("### ChatGPT Recommendations:")
-                st.dataframe(recommendations)
-                
+            st.write("Getting ChatGPT recommendations based on the extracted dataset...")
+            get_chatgpt_analysis_recommendations(df)
 
-                
-        
-        #Step 2: Ask for Independent and Dependent Variables
+        # Step 2: Ask for Independent and Dependent Variables
         st.write("### Select Values:")
         independent_var = st.selectbox("Select Filter", columns)
         dependent_var = st.selectbox("Select Value", columns)
 
-        #Step 3: Ask for Time Periods
+        # Step 3: Ask for Time Periods
         period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
 
-        #Step 4: Generate Analysis Options
+        # Step 4: Generate Analysis Options
         analysis_options = ["Regression Analysis", "Time Series Analysis", "Correlation Analysis"]
         analysis_choice = st.selectbox("Select Analysis Type:", analysis_options)
 
-        #Analysis Button
+        # Analysis Button
         if st.button("Run Analysis"):
             if analysis_choice == "Regression Analysis":
                 st.write(f"Running Regression Analysis with {independent_var} as independent and {dependent_var} as dependent variables...")
