@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # Set up OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def extract_top_columns(file, num_columns=5):
+def extract_top_columns(file, num_columns):
     """Extract columns from an uploaded Excel file."""
     try:
         df = pd.read_excel(file)
@@ -17,11 +17,85 @@ def extract_top_columns(file, num_columns=5):
         st.error(f"Error reading the Excel file: {e}")
         return None
 
+def preprocess_data(df):
+    """Preprocess and clean the extracted data."""
+    try:
+        steps = {
+            "Remove duplicate rows": lambda df: df.drop_duplicates(),
+            "Remove null values": lambda df: df.dropna(),
+            "Handle date columns": lambda df: handle_date_columns(df),
+            "Standardize column names": lambda df: standardize_column_names(df),
+            "Ensure 'Year' column is valid": lambda df: validate_year_column(df),
+            #"Validate and correct data types": lambda df: validate_data_types(df),
+            "Remove low-variance columns": lambda df: remove_low_variance_columns(df),
+            #"Reset index": lambda df: df.reset_index(drop=True)
+        }
+
+        """st.write("### Data Cleaning Steps:")
+        for step, func in steps.items():
+            if st.checkbox(step, value=True):
+                df = func(df)
+                st.success(f"{step} completed.")"""
+
+        st.success("All selected data cleaning steps completed successfully!")
+
+        #Display the cleaned dataset
+        st.write("### Cleaned Data:")
+        st.dataframe(df)
+
+        return df
+
+    except Exception as e:
+        st.error(f"Error during data preprocessing: {e}")
+        return None
+
+def validate_year_column(df):
+    """Ensure 'Year' column is valid and properly formatted."""
+    if 'Year' in df.columns:
+        #Remove non-numeric characters and standardize format
+        df['Year'] = df['Year'].astype(str).str.replace(r"[^\d]", "", regex=True)
+        df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
+        df = df.dropna(subset=['Year'])
+        df['Year'] = df['Year'].astype(int)
+    else:
+        st.error("The dataset must contain a 'Year' column.")
+    return df
+
+
+
+def handle_date_columns(df):
+    """Convert and fix date formats."""
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]) or 'date' in col.lower():
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+    return df.dropna()
+
+def standardize_column_names(df):
+    """Standardize column names to lowercase with underscores."""
+    df.columns = df.columns.str.lower().str.replace(' ', '_')
+    return df
+
+def validate_data_types(df):
+    """Validate and correct data types of columns."""
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            try:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            except ValueError:
+                pass
+    return df.dropna()
+
+def remove_low_variance_columns(df):
+    """Remove columns with low variance."""
+    low_variance_cols = [col for col in df.columns if df[col].nunique() <= 1]
+    return df.drop(columns=low_variance_cols)
+
+# Function for ChatGPT Recommendations
 def get_chatgpt_analysis_recommendations(df):
     """Send the entire dataset to GPT-4 and get analysis recommendations."""
     prompt = (
         "List all potential analyses (don't use sterics or dash, just highlight the title) with all this information including: \n"
-        "Analyses Title\n"
+        "Analysis Title\n"
         "Short Description\n"
         "Recommended Filter\n"
         "Recommended Value\n"
@@ -39,8 +113,8 @@ def get_chatgpt_analysis_recommendations(df):
             temperature=0.7,
         )
         gpt_response = response["choices"][0]["message"]["content"].strip()
-        
-        # Print GPT response as plain text
+
+        #Print GPT response as plain text
         st.write("### ChatGPT Analysis Recommendations:")
         st.text(gpt_response)
 
@@ -67,7 +141,7 @@ def perform_regression_analysis(df, independent_var, dependent_var):
     except Exception as e:
         st.error(f"Error performing regression analysis: {e}")
 
-# Function for Time Series Analysis
+#Function for Time Series Analysis
 def perform_time_series_analysis(df, dependent_var, period):
     """Perform time series analysis."""
     try:
@@ -106,39 +180,43 @@ def main():
         st.write("### Extracted Data:")
         st.dataframe(df)
 
-        columns = analyze_columns(df)
+        # Preprocess the data
+        df = preprocess_data(df)
 
-        # ChatGPT Button
-        if st.button("Get ChatGPT Analysis Recommendations"):
-            st.write("Getting ChatGPT recommendations based on the extracted dataset...")
-            get_chatgpt_analysis_recommendations(df)
+        if df is not None:
+            columns = analyze_columns(df)
 
-        # Step 2: Ask for Independent and Dependent Variables
-        st.write("### Select Values:")
-        independent_var = st.selectbox("Select Filter", columns)
-        dependent_var = st.selectbox("Select Value", columns)
+            # ChatGPT Button
+            if st.button("Get ChatGPT Analysis Recommendations"):
+                st.write("Getting ChatGPT recommendations based on the extracted dataset...")
+                get_chatgpt_analysis_recommendations(df)
 
-        # Step 3: Ask for Time Periods
-        period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
+            # Step 2: Ask for Independent and Dependent Variables
+            st.write("### Select Values:")
+            independent_var = st.selectbox("Select Filter", columns)
+            dependent_var = st.selectbox("Select Value", columns)
 
-        # Step 4: Generate Analysis Options
-        analysis_options = ["Regression Analysis", "Time Series Analysis", "Correlation Analysis"]
-        analysis_choice = st.selectbox("Select Analysis Type:", analysis_options)
+            # Step 3: Ask for Time Periods
+            period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
 
-        # Analysis Button
-        if st.button("Run Analysis"):
-            if analysis_choice == "Regression Analysis":
-                st.write(f"Running Regression Analysis with {independent_var} as independent and {dependent_var} as dependent variables...")
-                perform_regression_analysis(df, independent_var, dependent_var)
+            # Step 4: Generate Analysis Options
+            analysis_options = ["Regression Analysis", "Time Series Analysis", "Correlation Analysis"]
+            analysis_choice = st.selectbox("Select Analysis Type:", analysis_options)
 
-            elif analysis_choice == "Time Series Analysis":
-                st.write(f"Running Time Series Analysis with {dependent_var} over {period} periods...")
-                perform_time_series_analysis(df, dependent_var, period)
+            # Analysis Button
+            if st.button("Run Analysis"):
+                if analysis_choice == "Regression Analysis":
+                    st.write(f"Running Regression Analysis with {independent_var} as independent and {dependent_var} as dependent variables...")
+                    perform_regression_analysis(df, independent_var, dependent_var)
 
-            elif analysis_choice == "Correlation Analysis":
-                st.write(f"Calculating Correlation between {independent_var} and {dependent_var}...")
-                correlation = df[independent_var].corr(df[dependent_var])
-                st.write(f"Correlation: {correlation}")
+                elif analysis_choice == "Time Series Analysis":
+                    st.write(f"Running Time Series Analysis with {dependent_var} over {period} periods...")
+                    perform_time_series_analysis(df, dependent_var, period)
+
+                elif analysis_choice == "Correlation Analysis":
+                    st.write(f"Calculating Correlation between {independent_var} and {dependent_var}...")
+                    correlation = df[independent_var].corr(df[dependent_var])
+                    st.write(f"Correlation: {correlation}")
 
 if __name__ == "__main__":
     main()
