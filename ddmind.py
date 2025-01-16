@@ -170,7 +170,7 @@ def perform_time_series_analysis(df, dependent_var, period):
         st.error(f"Error performing time series analysis: {e}")
 
 def main():
-    st.title("Excel Analysis with DDMind")
+    st.title("Data Analysis with DDMind")
     st.write("Upload an Excel file, and we'll help you figure out the analyses that can be done based on the sample data.")
 
     uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls", "csv"])
