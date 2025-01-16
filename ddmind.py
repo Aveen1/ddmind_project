@@ -115,7 +115,7 @@ def get_chatgpt_analysis_recommendations(df):
         gpt_response = response["choices"][0]["message"]["content"].strip()
 
         #Print GPT response as plain text
-        st.write("### ChatGPT Analysis Recommendations:")
+        st.write("### DDMind Analysis Recommendations:")
         st.text(gpt_response)
 
     except openai.error.OpenAIError as e:
@@ -170,7 +170,7 @@ def perform_time_series_analysis(df, dependent_var, period):
         st.error(f"Error performing time series analysis: {e}")
 
 def main():
-    st.title("Excel Analysis Assistant with ChatGPT")
+    st.title("Excel Analysis with DDMind")
     st.write("Upload an Excel file, and we'll help you figure out the analyses that can be done based on the sample data.")
 
     uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls", "csv"])
@@ -187,8 +187,8 @@ def main():
             columns = analyze_columns(df)
 
             # ChatGPT Button
-            if st.button("Get ChatGPT Analysis Recommendations"):
-                st.write("Getting ChatGPT recommendations based on the extracted dataset...")
+            if st.button("Get DDMind Analysis Recommendations"):
+                st.write("Getting DDMind recommendations based on the extracted dataset...")
                 get_chatgpt_analysis_recommendations(df)
 
             # Step 2: Ask for Independent and Dependent Variables
