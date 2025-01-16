@@ -31,11 +31,11 @@ def preprocess_data(df):
             #"Reset index": lambda df: df.reset_index(drop=True)
         }
 
-        """st.write("### Data Cleaning Steps:")
+        st.write("### Data Cleaning Steps:")
         for step, func in steps.items():
             if st.checkbox(step, value=True):
                 df = func(df)
-                st.success(f"{step} completed.")"""
+                st.success(f"{step} completed.")
 
         st.success("All selected data cleaning steps completed successfully!")
 
