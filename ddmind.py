@@ -24,7 +24,7 @@ def preprocess_data(df):
             "Remove duplicate rows": lambda df: df.drop_duplicates(),
             "Remove null values": lambda df: df.dropna(),
             "Handle date columns": lambda df: handle_date_columns(df),
-            "Standardize column names": lambda df: standardize_column_names(df),
+            #"Standardize column names": lambda df: standardize_column_names(df),
             #"Ensure 'Year' column is valid": lambda df: validate_year_column(df),
             #"Validate and correct data types": lambda df: validate_data_types(df),
             "Remove low-variance columns": lambda df: remove_low_variance_columns(df),
