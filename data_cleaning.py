@@ -26,9 +26,9 @@ def preprocess_data(df):
             "Handle date columns": lambda df: handle_date_columns(df),
             "Standardize column names": lambda df: standardize_column_names(df),
             "Ensure 'Year' column is valid": lambda df: validate_year_column(df),
-            #"Validate and correct data types": lambda df: validate_data_types(df),
+            "Validate and correct data types": lambda df: validate_data_types(df),
             "Remove low-variance columns": lambda df: remove_low_variance_columns(df),
-            #"Reset index": lambda df: df.reset_index(drop=True)
+            "Reset index": lambda df: df.reset_index(drop=True)
         }
 
         """st.write("### Data Cleaning Steps:")
