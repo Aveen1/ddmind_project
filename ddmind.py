@@ -90,7 +90,7 @@ def remove_low_variance_columns(df):
     low_variance_cols = [col for col in df.columns if df[col].nunique() <= 1]
     return df.drop(columns=low_variance_cols)
 
-# Function for ChatGPT Recommendations
+#Function for ChatGPT Recommendations
 def get_chatgpt_analysis_recommendations(df):
     """Send the entire dataset to GPT-4 and get analysis recommendations."""
     prompt = (
@@ -125,7 +125,18 @@ def analyze_columns(df):
     """Analyze the columns in the DataFrame."""
     return list(df.columns)
 
-# Function for Regression Analysis
+#Function for Segment Analysis
+def perform_segment_analysis(df, filter_column, value_column):
+    try:
+        segment_summary = df.groupby(filter_column)[value_column].mean().reset_index()
+        st.write(f"### Segment Analysis ({filter_column}):")
+        st.dataframe(segment_summary)
+        st.bar_chart(segment_summary.set_index(filter_column))
+    except Exception as e:
+        st.error(f"Error performing segment analysis: {e}")
+
+
+#Function for Regression Analysis
 def perform_regression_analysis(df, independent_var, dependent_var):
     """Perform regression analysis."""
     try:
@@ -192,30 +203,27 @@ def main():
                 get_chatgpt_analysis_recommendations(df)
 
             # Step 2: Ask for Independent and Dependent Variables
-            st.write("### Select Values:")
-            independent_var = st.selectbox("Select Filter", columns)
-            dependent_var = st.selectbox("Select Value", columns)
+            st.write("### Select Variables:")
+            filter_column = st.selectbox("Select Filter", columns)
+            value_column = st.selectbox("Select Value", columns)
 
             # Step 3: Ask for Time Periods
             period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
 
-            # Step 4: Generate Analysis Options
-            analysis_options = ["Regression Analysis", "Time Series Analysis", "Correlation Analysis"]
+            #Step 4: Generate Analysis Options
+            analysis_options = ["Segment Analysis","Regression Analysis", "Correlation Analysis"]
             analysis_choice = st.selectbox("Select Analysis Type:", analysis_options)
 
             # Analysis Button
             if st.button("Run Analysis"):
-                if analysis_choice == "Regression Analysis":
-                    st.write(f"Running Regression Analysis with {independent_var} as independent and {dependent_var} as dependent variables...")
-                    perform_regression_analysis(df, independent_var, dependent_var)
+                if analysis_choice == "Segment Analysis":
+                    perform_segment_analysis(df, filter_column, value_column)
 
-                elif analysis_choice == "Time Series Analysis":
-                    st.write(f"Running Time Series Analysis with {dependent_var} over {period} periods...")
-                    perform_time_series_analysis(df, dependent_var, period)
+                elif analysis_choice == "Regression Analysis":
+                    perform_regression_analysis(df, filter_column, value_column)
 
                 elif analysis_choice == "Correlation Analysis":
-                    st.write(f"Calculating Correlation between {independent_var} and {dependent_var}...")
-                    correlation = df[independent_var].corr(df[dependent_var])
+                    correlation = df[filter_column].corr(df[value_column])
                     st.write(f"Correlation: {correlation}")
 
 if __name__ == "__main__":
