@@ -5,6 +5,8 @@ import os
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import seaborn as sns
+from operator import attrgetter
+
 
 # Set up OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -167,6 +169,44 @@ def perform_retention_analysis(df, filter_column, value_column):
     except Exception as e:
         st.error(f"Error performing retention analysis: {e}")
 
+#Function for Cohort Analysis
+
+def perform_cohort_analysis(df, filter_column, value_column):
+    try:
+        #Combine Year and Month columns into a single column for filtering
+        df[filter_column] = pd.to_datetime(df['Year'].astype(str) + '-' + df['Month'].astype(str), format='%Y-%m')
+
+        #Create cohort column (minimum date for each value in value_column)
+        df['cohort'] = df.groupby(value_column)[filter_column].transform('min')
+
+        #Extract cohort and order months as periods
+        df['cohort_month'] = df['cohort'].dt.to_period('M')
+        df['order_month'] = df[filter_column].dt.to_period('M')
+
+        #Calculate cohort index (months since cohort start)
+        df['cohort_index'] = (df['order_month'] - df['cohort_month']).apply(attrgetter('n'))
+
+        #Group data by cohort_month and cohort_index to count unique customers (value_column)
+        cohort_data = df.groupby(['cohort_month', 'cohort_index'])[value_column].nunique().reset_index()
+
+        #Pivot the data to create a cohort matrix
+        cohort_pivot = cohort_data.pivot(index='cohort_month', columns='cohort_index', values=value_column)
+
+        #Calculate retention percentages
+        cohort_percentage = cohort_pivot.div(cohort_pivot.iloc[:, 0], axis=0)
+
+        #Display the cohort analysis table
+        st.write("### Cohort Analysis:")
+        st.dataframe(cohort_percentage)
+
+        #Visualization
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.set_title("Cohort Analysis")
+        sns.heatmap(cohort_percentage, annot=True, fmt=".0%", cmap="Blues", ax=ax)
+        st.pyplot(fig)
+
+    except Exception as e:
+        st.error(f"Error performing cohort analysis: {e}")
 
 #Function for Regression Analysis
 def perform_regression_analysis(df, independent_var, dependent_var):
@@ -176,7 +216,7 @@ def perform_regression_analysis(df, independent_var, dependent_var):
         y = df[dependent_var]
 
         if X.ndim == 1:
-            X = sm.add_constant(X)  # Add a constant term for the intercept
+            X = sm.add_constant(X)  #Add a constant term for the intercept
 
         model = sm.OLS(y, X).fit()
         st.write("### Regression Summary:")
@@ -243,7 +283,7 @@ def main():
             period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
 
             #Step 4: Generate Analysis Options
-            analysis_options = ["Segment Analysis","Retention Analysis","Regression Analysis", "Correlation Analysis"]
+            analysis_options = ["Segment Analysis","Retention Analysis","Cohort Analysis","Regression Analysis", "Correlation Analysis"]
             analysis_choice = st.selectbox("Select Analysis Type:", analysis_options)
 
             # Analysis Button
@@ -253,6 +293,9 @@ def main():
 
                 elif analysis_choice == "Retention Analysis":
                     perform_retention_analysis(df, filter_column, value_column)
+
+                elif analysis_choice == "Cohort Analysis":
+                    perform_cohort_analysis(df, filter_column, value_column)
 
                 elif analysis_choice == "Regression Analysis":
                     perform_regression_analysis(df, filter_column, value_column)
