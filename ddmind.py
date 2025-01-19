@@ -4,6 +4,7 @@ import openai
 import os
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Set up OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -135,6 +136,37 @@ def perform_segment_analysis(df, filter_column, value_column):
     except Exception as e:
         st.error(f"Error performing segment analysis: {e}")
 
+#Function for Retention Analysis
+def perform_retention_analysis(df, filter_column, value_column):
+    
+    try:
+        #Convert the filter column to datetime if it's Year and Month
+        if 'Year' in df.columns and 'Month' in df.columns:
+            df[filter_column] = pd.to_datetime(df['Year'].astype(str) + '-' + df['Month'].astype(str) + '-01')
+        else:
+            df[filter_column] = pd.to_datetime(df[filter_column])
+
+        #Calculate cohort and retention periods
+        df['cohort'] = df.groupby(value_column)[filter_column].transform('min')
+        df['period'] = ((df[filter_column] - df['cohort']) / pd.Timedelta(days=30)).apply(lambda x: int(x))
+
+        #Generate the retention table
+        retention = df.pivot_table(index='cohort', columns='period', values=value_column, aggfunc='nunique').fillna(0)
+        retention_percentage = retention.div(retention.iloc[:, 0], axis=0)
+
+        #Display the results in Streamlit
+        st.write("### Retention Analysis:")
+        st.dataframe(retention_percentage)
+
+        #Visualization
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.set_title("Retention Analysis")
+        sns.heatmap(retention_percentage, annot=True, fmt=".0%", cmap="Blues", ax=ax)
+        st.pyplot(fig)
+
+    except Exception as e:
+        st.error(f"Error performing retention analysis: {e}")
+
 
 #Function for Regression Analysis
 def perform_regression_analysis(df, independent_var, dependent_var):
@@ -211,13 +243,16 @@ def main():
             period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
 
             #Step 4: Generate Analysis Options
-            analysis_options = ["Segment Analysis","Regression Analysis", "Correlation Analysis"]
+            analysis_options = ["Segment Analysis","Retention Analysis","Regression Analysis", "Correlation Analysis"]
             analysis_choice = st.selectbox("Select Analysis Type:", analysis_options)
 
             # Analysis Button
             if st.button("Run Analysis"):
                 if analysis_choice == "Segment Analysis":
                     perform_segment_analysis(df, filter_column, value_column)
+
+                elif analysis_choice == "Retention Analysis":
+                    perform_retention_analysis(df, filter_column, value_column)
 
                 elif analysis_choice == "Regression Analysis":
                     perform_regression_analysis(df, filter_column, value_column)
