@@ -4,4 +4,4 @@ python-dotenv
 statsmodels
 matplotlib
 seaborn
-operator
+
