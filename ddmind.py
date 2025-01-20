@@ -52,6 +52,18 @@ def preprocess_data(df):
         st.error(f"Error during data preprocessing: {e}")
         return None
 
+#function for time_period
+def filter_data_by_time_period(df, time_period):
+    if time_period == "Yearly":
+        df['Time_Period'] = df['Date'].dt.to_period('Y')
+    elif time_period == "Quarterly":
+        df['Time_Period'] = df['Date'].dt.to_period('Q')
+    elif time_period == "Monthly":
+        df['Time_Period'] = df['Date'].dt.to_period('M')
+    else:
+        raise ValueError("Invalid time period selected.")
+    return df
+
 def validate_year_column(df):
     """Ensure 'Year' column is valid and properly formatted."""
     if 'Year' in df.columns:
@@ -129,38 +141,64 @@ def analyze_columns(df):
     return list(df.columns)
 
 #Function for Segment Analysis
-def perform_segment_analysis(df, filter_column, value_column):
+# Function for Segment Analysis
+def perform_segment_analysis(df, filter_column, value_column, time_period):
     try:
-        segment_summary = df.groupby(filter_column)[value_column].mean().reset_index()
+        #Filter the DataFrame by the given time period
+        df = filter_data_by_time_period(df, time_period)
+        
+        #Ensure the necessary columns exist in the filtered DataFrame
+        if filter_column not in df.columns or value_column not in df.columns:
+            st.error(f"Columns '{filter_column}' or '{value_column}' not found in the DataFrame.")
+            return
+        
+        #Ensure 'Time_Period' column exists or create it if necessary
+        if 'Time_Period' not in df.columns:
+            st.error("The 'Time_Period' column is missing in the DataFrame. Ensure it's created correctly.")
+            return
+        
+        #Perform the grouping and aggregation
+        segment_summary = (
+            df.groupby(['Time_Period', filter_column])[value_column]
+            .mean()
+            .reset_index()
+        )
+
+        #Check if segment_summary is not empty
+        if segment_summary.empty:
+            st.warning(f"No data available for the specified time period: {time_period}.")
+            return
+        
+        #Prepare data for visualization (pivot for bar_chart)
+        segment_summary_pivot = segment_summary.pivot(
+            index='Time_Period', columns=filter_column, values=value_column
+        )
+
+        #Display the summary table
         st.write(f"### Segment Analysis ({filter_column}):")
         st.dataframe(segment_summary)
-        st.bar_chart(segment_summary.set_index(filter_column))
+
+        #Display the bar chart
+        st.bar_chart(segment_summary_pivot)
+
     except Exception as e:
+        # Display an error message if any issue occurs
         st.error(f"Error performing segment analysis: {e}")
 
+
 #Function for Retention Analysis
-def perform_retention_analysis(df, filter_column, value_column):
+def perform_retention_analysis(df, filter_column, value_column, time_period):
     
     try:
-        #Convert the filter column to datetime if it's Year and Month
-        if 'Year' in df.columns and 'Month' in df.columns:
-            df[filter_column] = pd.to_datetime(df['Year'].astype(str) + '-' + df['Month'].astype(str) + '-01')
-        else:
-            df[filter_column] = pd.to_datetime(df[filter_column])
-
-        #Calculate cohort and retention periods
-        df['cohort'] = df.groupby(value_column)[filter_column].transform('min')
-        df['period'] = ((df[filter_column] - df['cohort']) / pd.Timedelta(days=30)).apply(lambda x: int(x))
-
-        #Generate the retention table
+        df = filter_data_by_time_period(df, time_period)
+        df['cohort'] = df.groupby(value_column)['Date'].transform('min')
+        df['period'] = ((df['Date'] - df['cohort']) / pd.Timedelta(days=30)).apply(lambda x: int(x))
         retention = df.pivot_table(index='cohort', columns='period', values=value_column, aggfunc='nunique').fillna(0)
         retention_percentage = retention.div(retention.iloc[:, 0], axis=0)
 
-        #Display the results in Streamlit
         st.write("### Retention Analysis:")
         st.dataframe(retention_percentage)
 
-        #Visualization
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.set_title("Retention Analysis")
         sns.heatmap(retention_percentage, annot=True, fmt=".0%", cmap="Blues", ax=ax)
@@ -170,36 +208,21 @@ def perform_retention_analysis(df, filter_column, value_column):
         st.error(f"Error performing retention analysis: {e}")
 
 #Function for Cohort Analysis
-
-def perform_cohort_analysis(df, filter_column, value_column):
+def perform_cohort_analysis(df, filter_column, value_column, time_period):
     try:
-        #Combine Year and Month columns into a single column for filtering
-        df[filter_column] = pd.to_datetime(df['Year'].astype(str) + '-' + df['Month'].astype(str), format='%Y-%m')
-
-        #Create cohort column (minimum date for each value in value_column)
-        df['cohort'] = df.groupby(value_column)[filter_column].transform('min')
-
-        #Extract cohort and order months as periods
+        df = filter_data_by_time_period(df, time_period)
+        df['cohort'] = df.groupby(value_column)['Date'].transform('min')
         df['cohort_month'] = df['cohort'].dt.to_period('M')
-        df['order_month'] = df[filter_column].dt.to_period('M')
-
-        #Calculate cohort index (months since cohort start)
+        df['order_month'] = df['Date'].dt.to_period('M')
         df['cohort_index'] = (df['order_month'] - df['cohort_month']).apply(attrgetter('n'))
 
-        #Group data by cohort_month and cohort_index to count unique customers (value_column)
         cohort_data = df.groupby(['cohort_month', 'cohort_index'])[value_column].nunique().reset_index()
-
-        #Pivot the data to create a cohort matrix
         cohort_pivot = cohort_data.pivot(index='cohort_month', columns='cohort_index', values=value_column)
-
-        #Calculate retention percentages
         cohort_percentage = cohort_pivot.div(cohort_pivot.iloc[:, 0], axis=0)
 
-        #Display the cohort analysis table
         st.write("### Cohort Analysis:")
         st.dataframe(cohort_percentage)
 
-        #Visualization
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.set_title("Cohort Analysis")
         sns.heatmap(cohort_percentage, annot=True, fmt=".0%", cmap="Blues", ax=ax)
@@ -209,48 +232,23 @@ def perform_cohort_analysis(df, filter_column, value_column):
         st.error(f"Error performing cohort analysis: {e}")
 
 #Function for Regression Analysis
-def perform_regression_analysis(df, independent_var, dependent_var):
+def perform_regression_analysis(df, independent_var, dependent_var, time_period):
     """Perform regression analysis."""
     try:
+        df = filter_data_by_time_period(df, time_period)
         X = df[independent_var]
         y = df[dependent_var]
 
         if X.ndim == 1:
-            X = sm.add_constant(X)  #Add a constant term for the intercept
+            X = sm.add_constant(X)
 
         model = sm.OLS(y, X).fit()
         st.write("### Regression Summary:")
         st.text(model.summary())
+
     except Exception as e:
         st.error(f"Error performing regression analysis: {e}")
 
-#Function for Time Series Analysis
-def perform_time_series_analysis(df, dependent_var, period):
-    """Perform time series analysis."""
-    try:
-        if 'Year' not in df.columns:
-            st.error("The dataset must contain a 'Year' column for time series analysis.")
-            return
-
-        # Convert 'Year' to datetime format
-        df['Year'] = pd.to_datetime(df['Year'], format='%Y', errors='coerce')
-        df = df.dropna(subset=['Year'])
-        df = df.set_index('Year')
-
-        if period == "Yearly":
-            ts_data = df[dependent_var].resample('A').mean()
-        elif period == "Quarterly":
-            ts_data = df[dependent_var].resample('Q').mean()
-        elif period == "Monthly":
-            ts_data = df[dependent_var].resample('M').mean()
-        else:
-            st.error("Invalid period selected.")
-            return
-
-        st.write(f"### {period} Time Series Data:")
-        st.line_chart(ts_data)
-    except Exception as e:
-        st.error(f"Error performing time series analysis: {e}")
 
 def main():
     st.title("Data Analysis with DDMind")
@@ -260,10 +258,12 @@ def main():
 
     if uploaded_file:
         df = pd.read_excel(uploaded_file)
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+
         st.write("### Extracted Data:")
         st.dataframe(df)
 
-        # Preprocess the data
+        #Preprocess the data
         df = preprocess_data(df)
 
         if df is not None:
@@ -280,7 +280,7 @@ def main():
             value_column = st.selectbox("Select Value", columns)
 
             # Step 3: Ask for Time Periods
-            period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
+            time_period = st.selectbox("Select Time Period:", ["Yearly", "Quarterly", "Monthly"])
 
             #Step 4: Generate Analysis Options
             analysis_options = ["Segment Analysis","Retention Analysis","Cohort Analysis","Regression Analysis", "Correlation Analysis"]
@@ -289,16 +289,16 @@ def main():
             # Analysis Button
             if st.button("Run Analysis"):
                 if analysis_choice == "Segment Analysis":
-                    perform_segment_analysis(df, filter_column, value_column)
+                    perform_segment_analysis(df, filter_column, value_column,time_period)
 
                 elif analysis_choice == "Retention Analysis":
-                    perform_retention_analysis(df, filter_column, value_column)
+                    perform_retention_analysis(df, filter_column, value_column, time_period)
 
                 elif analysis_choice == "Cohort Analysis":
-                    perform_cohort_analysis(df, filter_column, value_column)
+                    perform_cohort_analysis(df, filter_column, value_column, time_period)
 
                 elif analysis_choice == "Regression Analysis":
-                    perform_regression_analysis(df, filter_column, value_column)
+                    perform_regression_analysis(df, filter_column, value_column, time_period)
 
                 elif analysis_choice == "Correlation Analysis":
                     correlation = df[filter_column].corr(df[value_column])
