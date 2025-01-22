@@ -5,4 +5,5 @@ statsmodels
 matplotlib
 seaborn
 langchain
+langchain_community
 
