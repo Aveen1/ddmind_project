@@ -1,6 +1,4 @@
-
-#this code is working fine till now (the best one out of all)
-
+# This code is updated to ensure analysis results are exported as a pivoted table
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.schema import SystemMessage, HumanMessage
@@ -32,7 +30,7 @@ def analyze_data_with_langchain(df):
             "  \"recommendations\": \"explanation points\"\n"
             "}}\n\n"
             "Ensure the response is valid JSON and uses the exact keys specified above."
-            "Put each recommendations on a new line."
+            "Put each recommendation on a new line."
         )
     )
 
@@ -54,7 +52,7 @@ def analyze_data_with_langchain(df):
 
         # Get the response
         response = chat(messages)
-        
+
         # Try to parse the JSON response
         try:
             return json.loads(response.content)
@@ -64,10 +62,10 @@ def analyze_data_with_langchain(df):
             if cleaned_response.startswith("```json"):
                 cleaned_response = cleaned_response[7:-3]
             return json.loads(cleaned_response)
-            
+
     except Exception as e:
         # Provide a fallback response if the API call fails
-        date_columns = [col for col in df.columns if df[col].dtype == 'datetime64[ns]' 
+        date_columns = [col for col in df.columns if df[col].dtype == 'datetime64[ns]' \
                        or (isinstance(df[col].dtype, object) and 'date' in col.lower())]
         return {
             "analysis_types": ["Basic Analysis"],
@@ -83,7 +81,7 @@ def process_time_period(df, date_column, time_period):
     try:
         # Ensure date column is datetime
         df[date_column] = pd.to_datetime(df[date_column])
-        
+
         # Create period labels based on selected time period
         if time_period == "Yearly":
             df['period'] = df[date_column].dt.year.astype(str)
@@ -91,17 +89,19 @@ def process_time_period(df, date_column, time_period):
             df['period'] = df[date_column].dt.to_period('Q').astype(str)
         elif time_period == "Monthly":
             df['period'] = df[date_column].dt.strftime('%Y-%m')
-        
+
         return df
     except Exception as e:
         st.error(f"Error processing time period: {e}")
         return df
 
-def to_excel_download_link(df, filename="analysis_result.xlsx", text="Download Analysis Results"):
-    """Generates a link to download the dataframe as an excel file."""
+def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.xlsx"):
+    """Generates a link to download the dataframes as an Excel file with separate sheets."""
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=True)
+        sum_df.to_excel(writer, index=True, sheet_name="Sum")
+        avg_df.to_excel(writer, index=True, sheet_name="Average")
+        count_df.to_excel(writer, index=True, sheet_name="Count")
     excel_data = output.getvalue()
     return excel_data
 
@@ -123,15 +123,15 @@ def main():
 
             # Step 2: Clean the data
             df_cleaned = df.drop_duplicates().fillna(method='ffill').fillna(method='bfill')
-            
+
             # Step 3: Get analysis recommendations from ChatGPT
             with st.spinner("Analyzing data..."):
                 json_response = analyze_data_with_langchain(df_cleaned)
-            
+
             # Display recommendations as a paragraph
             st.write("### DDMind Recommendations:")
             st.write(json_response["recommendations"])
-            
+
             # Extract data from JSON for dropdowns
             analysis_types = json_response.get("analysis_types", ["Basic Analysis"])
             filters = json_response.get("filters", df_cleaned.select_dtypes(include=['object']).columns.tolist())
@@ -154,56 +154,80 @@ def main():
             with col1:
                 st.write("### Select Variables")
                 selected_analysis = st.selectbox("Analysis Type", analysis_types)
-                selected_filter = st.selectbox("Filter", filters)
-                
+                selected_filter = st.selectbox("Topic", filters)
+
             with col2:
                 st.write("###  ")  # Empty header for alignment
                 selected_value = st.selectbox("Value", value_columns)
                 selected_time = st.selectbox("Time Period", time_periods)
                 selected_date = st.selectbox("Date", date_columns if date_columns else ["None available"])
-          
 
-            # Add Run Analysis button
+            #Add Run Analysis button
             if st.button("Run Analysis"):
                 if selected_filter in df_cleaned.columns and selected_value in df_cleaned.columns:
                     try:
                         st.write("### Analysis Result:")
                         st.write(f"Showing {selected_analysis} of {selected_value} filtered by {selected_filter} ({selected_time})")
-                        
-                        # Process time periods if date column is available
+
+                        #Process time periods if date column is available
                         if selected_date != "None available":
                             df_analysis = process_time_period(df_cleaned.copy(), selected_date, selected_time)
-                            
-                            # Perform analysis with both period and filter
+
+                            #Perform analysis with both period and filter
                             analysis_result = df_analysis.groupby(['period', selected_filter])[selected_value].agg(['sum', 'mean', 'count'])
-                            
-                            # Reset index to make the period and filter columns regular columns
-                            result_df = pd.DataFrame(analysis_result).reset_index()
-                            
-                            # Rename columns for clarity
+
+                            #Reset index to make the period and filter columns regular columns
+                            result_df = analysis_result.reset_index()
+
+                            #Rename columns for clarity
                             result_df.columns = ['Time Period', selected_filter, 'Sum', 'Average', 'Count']
-                            
-                            # Sort by Time Period
+
+                            #Sort by Time Period
                             result_df = result_df.sort_values('Time Period')
+
+                            #Create separate DataFrames for Sum, Average, and Count
+                            sum_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Sum')
+                            avg_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Average')
+                            count_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Count')
+
+                            #Pivot the table for 1 table
+                            #pivoted_df = result_df.pivot(index= selected_filter, columns='Time Period', values=['Sum', 'Average', 'Count'])
+
                         else:
                             # Fallback to regular analysis without time period
                             analysis_result = df_cleaned.groupby(selected_filter)[selected_value].agg(['sum', 'mean', 'count'])
-                            result_df = pd.DataFrame(analysis_result)
-                            result_df.columns = ['Sum', 'Average', 'Count']
-                        
+                            result_df = analysis_result.reset_index()
+                            result_df.columns = [selected_filter, 'Sum', 'Average', 'Count']
+
+                            # Create separate DataFrames for Sum, Average, and Count
+                            sum_df = result_df[['Sum']]
+                            avg_df = result_df[['Average']]
+                            count_df = result_df[['Count']]
+
+                            #Pivot the table for 1 table
+                            #pivoted_df = result_df.pivot(index=selected_filter, columns=None, values=['Sum', 'Average', 'Count'])
+
+                        #Display results
+                        st.write("### Pivoted Results (Sum):")
+                        st.write(sum_df)
+                        st.write("### Pivoted Results (Average):")
+                        st.write(avg_df)
+                        st.write("### Pivoted Results (Count):")
+                        st.write(count_df)
+
                         # Display results
-                        st.write(result_df)
-                        
-                        # Create download button for Excel
-                        excel_data = to_excel_download_link(result_df)
-                        
+                        #st.write(pivoted_df)
+
+                        #Create download button for Excel
+                        excel_data = to_excel_download_link(sum_df, avg_df, count_df)
+
                         st.download_button(
                             label="Download Analysis Results",
                             data=excel_data,
                             file_name=f"{selected_analysis}_{selected_value}_by_{selected_filter}_{selected_time}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
-                        
+
                     except Exception as e:
                         st.error(f"An error occurred during analysis: {e}")
                 else:
