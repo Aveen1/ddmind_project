@@ -1,4 +1,3 @@
-# This code is updated to ensure analysis results are exported as a pivoted table
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.schema import SystemMessage, HumanMessage
