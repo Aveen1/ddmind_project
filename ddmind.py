@@ -9,7 +9,7 @@ import json
 from io import BytesIO
 from datetime import datetime
 
-# Set OpenAI API key
+#Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def analyze_data_with_langchain(df):
@@ -104,6 +104,7 @@ def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.x
     excel_data = output.getvalue()
     return excel_data
 
+
 def main():
     st.title("DDMind")
 
@@ -154,6 +155,12 @@ def main():
                 st.write("### Select Variables")
                 selected_analysis = st.selectbox("Analysis Type", analysis_types)
                 selected_filter = st.selectbox("Topic", filters)
+                
+                # Dynamically create subfilter dropdown
+                if selected_filter:
+                    # Get unique values for the selected filter
+                    subfilter_options = ['All'] + list(df_cleaned[selected_filter].unique())
+                    selected_subfilter = st.selectbox(f"Specific {selected_filter}", subfilter_options)
 
             with col2:
                 st.write("###  ")  # Empty header for alignment
@@ -163,14 +170,20 @@ def main():
 
             #Add Run Analysis button
             if st.button("Run Analysis"):
-                if selected_filter in df_cleaned.columns and selected_value in df_cleaned.columns:
+                # Prepare dataframe for analysis
+                if selected_subfilter == 'All':
+                    df_analysis = df_cleaned
+                else:
+                    df_analysis = df_cleaned[df_cleaned[selected_filter] == selected_subfilter]
+
+                if selected_filter in df_analysis.columns and selected_value in df_analysis.columns:
                     try:
                         st.write("### Analysis Result:")
-                        st.write(f"Showing {selected_analysis} of {selected_value} filtered by {selected_filter} ({selected_time})")
+                        st.write(f"Showing {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})")
 
                         #Process time periods if date column is available
                         if selected_date != "None available":
-                            df_analysis = process_time_period(df_cleaned.copy(), selected_date, selected_time)
+                            df_analysis = process_time_period(df_analysis.copy(), selected_date, selected_time)
 
                             #Perform analysis with both period and filter
                             analysis_result = df_analysis.groupby(['period', selected_filter])[selected_value].agg(['sum', 'mean', 'count'])
@@ -189,22 +202,16 @@ def main():
                             avg_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Average')
                             count_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Count')
 
-                            #Pivot the table for 1 table
-                            #pivoted_df = result_df.pivot(index= selected_filter, columns='Time Period', values=['Sum', 'Average', 'Count'])
-
                         else:
                             # Fallback to regular analysis without time period
-                            analysis_result = df_cleaned.groupby(selected_filter)[selected_value].agg(['sum', 'mean', 'count'])
+                            analysis_result = df_analysis.groupby(selected_filter)[selected_value].agg(['sum', 'mean', 'count'])
                             result_df = analysis_result.reset_index()
                             result_df.columns = [selected_filter, 'Sum', 'Average', 'Count']
 
                             # Create separate DataFrames for Sum, Average, and Count
-                            sum_df = result_df[['Sum']]
-                            avg_df = result_df[['Average']]
-                            count_df = result_df[['Count']]
-
-                            #Pivot the table for 1 table
-                            #pivoted_df = result_df.pivot(index=selected_filter, columns=None, values=['Sum', 'Average', 'Count'])
+                            sum_df = result_df.set_index(selected_filter)[['Sum']]
+                            avg_df = result_df.set_index(selected_filter)[['Average']]
+                            count_df = result_df.set_index(selected_filter)[['Count']]
 
                         #Display results
                         st.write("### Pivoted Results (Sum):")
@@ -214,16 +221,13 @@ def main():
                         st.write("### Pivoted Results (Count):")
                         st.write(count_df)
 
-                        # Display results
-                        #st.write(pivoted_df)
-
                         #Create download button for Excel
                         excel_data = to_excel_download_link(sum_df, avg_df, count_df)
 
                         st.download_button(
                             label="Download Analysis Results",
                             data=excel_data,
-                            file_name=f"{selected_analysis}_{selected_value}_by_{selected_filter}_{selected_time}.xlsx",
+                            file_name=f"{selected_analysis}_{selected_value}_by_{selected_filter}_{selected_subfilter}_{selected_time}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
 
