@@ -251,7 +251,7 @@ def main():
 
             #Recommendations button outside Run Analysis block
             if st.session_state.analysis_complete:
-                if st.button("Recommendations on Results"):
+                if st.button("Insights on Results"):
                     try:
                         #Retrieve DataFrames from session state
                         sum_summary = st.session_state.sum_df.to_string()
