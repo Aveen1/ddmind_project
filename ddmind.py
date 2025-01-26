@@ -33,37 +33,37 @@ def analyze_data_with_langchain(df):
         )
     )
 
-    # Format the prompt
+    #Format the prompt
     prompt = prompt_template.format(
         dataset_preview=df.head().to_string(),
         columns=df.columns.tolist()
     )
 
     try:
-        # Initialize the ChatOpenAI model
+        #Initialize the ChatOpenAI model
         chat = ChatOpenAI(model="gpt-4", temperature=0)
 
-        # Use SystemMessage and HumanMessage for the input
+        #Use SystemMessage and HumanMessage for the input
         messages = [
             SystemMessage(content="You are an expert data analyst. Always provide responses in valid JSON format."),
             HumanMessage(content=prompt)
         ]
 
-        # Get the response
+        #Get the response
         response = chat(messages)
 
-        # Try to parse the JSON response
+        #Try to parse the JSON response
         try:
             return json.loads(response.content)
         except json.JSONDecodeError:
-            # If JSON parsing fails, try to clean the response
+            #If JSON parsing fails, try to clean the response
             cleaned_response = response.content.strip()
             if cleaned_response.startswith("```json"):
                 cleaned_response = cleaned_response[7:-3]
             return json.loads(cleaned_response)
 
     except Exception as e:
-        # Provide a fallback response if the API call fails
+        #Provide a fallback response if the API call fails
         date_columns = [col for col in df.columns if df[col].dtype == 'datetime64[ns]' \
                        or (isinstance(df[col].dtype, object) and 'date' in col.lower())]
         return {
@@ -78,10 +78,10 @@ def analyze_data_with_langchain(df):
 def process_time_period(df, date_column, time_period):
     """Process the dataframe according to the selected time period."""
     try:
-        # Ensure date column is datetime
+        #Ensure date column is datetime
         df[date_column] = pd.to_datetime(df[date_column])
 
-        # Create period labels based on selected time period
+        #Create period labels based on selected time period
         if time_period == "Yearly":
             df['period'] = df[date_column].dt.year.astype(str)
         elif time_period == "Quarterly":
@@ -104,11 +104,32 @@ def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.x
     excel_data = output.getvalue()
     return excel_data
 
+def generate_recommendations_from_file(file_content):
+    """Send analysis result file content to GPT for generating recommendations."""
+    try:
+        chat = ChatOpenAI(model="gpt-4", temperature=0)
+        prompt = (
+            "Analyze the provided analysis results and provide recommendations. "
+            "Focus on key insights and actionable business strategies. "
+            "Look for trends across different time periods."
+        )
+        messages = [
+            SystemMessage(content="You are a data analysis expert."),
+            HumanMessage(content=prompt + f"\n\n{file_content}")
+        ]
+        response = chat(messages)
+        return response.content
+    except Exception as e:
+        return f"Error generating recommendations: {e}"
 
 def main():
     st.title("DDMind")
 
-    # Step 1: Upload Excel file
+    #Initialize session state for tracking analysis state
+    if 'analysis_complete' not in st.session_state:
+        st.session_state.analysis_complete = False
+
+    #Step 1: Upload Excel file
     uploaded_file = st.file_uploader("Upload an Excel file", type=["xlsx", "xls", "csv"])
 
     if uploaded_file:
@@ -121,44 +142,36 @@ def main():
             st.write("### Extracted Data:")
             st.write(df)
 
-            # Step 2: Clean the data
+            #Step 2: Clean the data
             df_cleaned = df.drop_duplicates().fillna(method='ffill').fillna(method='bfill')
 
-            # Step 3: Get analysis recommendations from ChatGPT
+            #Step 3: Get analysis recommendations from ChatGPT
             with st.spinner("Analyzing data..."):
                 json_response = analyze_data_with_langchain(df_cleaned)
 
-            # Display recommendations as a paragraph
+            #Display recommendations as a paragraph
             st.write("### DDMind Recommendations:")
             st.write(json_response["recommendations"])
 
-            # Extract data from JSON for dropdowns
+            #Extract data from JSON for dropdowns
             analysis_types = json_response.get("analysis_types", ["Basic Analysis"])
             filters = json_response.get("filters", df_cleaned.select_dtypes(include=['object']).columns.tolist())
             value_columns = json_response.get("value_columns", df_cleaned.select_dtypes(include=['int64', 'float64']).columns.tolist())
             time_periods = json_response.get("time_periods", ["Monthly", "Quarterly", "Yearly"])
             date_columns = json_response.get("date_columns", [col for col in df_cleaned.columns if 'date' in col.lower()])
 
-            if not filters:
-                st.warning("No suitable filter columns found in the dataset.")
-                return
-            if not value_columns:
-                st.warning("No suitable value columns found in the dataset.")
-                return
-            if not date_columns:
-                st.warning("No date columns found in the dataset. Time period analysis may not be accurate.")
 
-            # Create columns for side-by-side dropdowns
+            #Create columns for side-by-side dropdowns
             col1, col2 = st.columns(2)
 
             with col1:
                 st.write("### Select Variables")
                 selected_analysis = st.selectbox("Analysis Type", analysis_types)
                 selected_filter = st.selectbox("Topic", filters)
-                
-                # Dynamically create subfilter dropdown
+
+                #Dynamically create subfilter dropdown
                 if selected_filter:
-                    # Get unique values for the selected filter
+                    #Get unique values for the selected filter
                     subfilter_options = ['All'] + list(df_cleaned[selected_filter].unique())
                     selected_subfilter = st.selectbox(f"Specific {selected_filter}", subfilter_options)
 
@@ -170,7 +183,7 @@ def main():
 
             #Add Run Analysis button
             if st.button("Run Analysis"):
-                # Prepare dataframe for analysis
+                #Prepare dataframe for analysis
                 if selected_subfilter == 'All':
                     df_analysis = df_cleaned
                 else:
@@ -203,12 +216,12 @@ def main():
                             count_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Count')
 
                         else:
-                            # Fallback to regular analysis without time period
+                            #Fallback to regular analysis without time period
                             analysis_result = df_analysis.groupby(selected_filter)[selected_value].agg(['sum', 'mean', 'count'])
                             result_df = analysis_result.reset_index()
                             result_df.columns = [selected_filter, 'Sum', 'Average', 'Count']
 
-                            # Create separate DataFrames for Sum, Average, and Count
+                            #Create separate DataFrames for Sum, Average, and Count
                             sum_df = result_df.set_index(selected_filter)[['Sum']]
                             avg_df = result_df.set_index(selected_filter)[['Average']]
                             count_df = result_df.set_index(selected_filter)[['Count']]
@@ -224,17 +237,55 @@ def main():
                         #Create download button for Excel
                         excel_data = to_excel_download_link(sum_df, avg_df, count_df)
 
-                        st.download_button(
-                            label="Download Analysis Results",
-                            data=excel_data,
-                            file_name=f"{selected_analysis}_{selected_value}_by_{selected_filter}_{selected_subfilter}_{selected_time}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
+                        #Store results in session state
+                        st.session_state.sum_df = sum_df
+                        st.session_state.avg_df = avg_df
+                        st.session_state.count_df = count_df
+                        st.session_state.analysis_complete = True
+                        st.session_state.excel_data = excel_data
 
                     except Exception as e:
                         st.error(f"An error occurred during analysis: {e}")
                 else:
                     st.warning("Selected columns are not present in the dataset. Please choose different options.")
+
+            #Recommendations button outside Run Analysis block
+            if st.session_state.analysis_complete:
+                if st.button("Recommendations on Results"):
+                    try:
+                        #Retrieve DataFrames from session state
+                        sum_summary = st.session_state.sum_df.to_string()
+                        avg_summary = st.session_state.avg_df.to_string()
+                        count_summary = st.session_state.count_df.to_string()
+
+                        full_summary = f"""
+                        Sum Analysis:
+                        {sum_summary}
+
+                        Average Analysis:
+                        {avg_summary}
+
+                        Count Analysis:
+                        {count_summary}
+                        """
+
+                        with st.spinner("Generating Recommendations..."):
+                            recommendations = generate_recommendations_from_file(full_summary)
+                            st.write("### DDMind Recommendations:")
+                            st.write(recommendations)
+
+                    except Exception as e:
+                        st.error(f"Recommendation generation error: {e}")
+
+                #Persistent Excel download button, it'll stay there 
+                st.download_button(
+                    label="Download Analysis Results",
+                    data=st.session_state.excel_data,
+                    file_name=f"{selected_analysis}_{selected_value}_by_{selected_filter}_{selected_subfilter}_{selected_time}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="persistent_download_button"
+                )
+
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
