@@ -269,9 +269,9 @@ def main():
                         {count_summary}
                         """
 
-                        with st.spinner("Generating Recommendations..."):
+                        with st.spinner("Generating Insights..."):
                             recommendations = generate_recommendations_from_file(full_summary)
-                            st.write("### DDMind Recommendations:")
+                            st.write("### DDMind Insights:")
                             st.write(recommendations)
 
                     except Exception as e:
