@@ -28,6 +28,7 @@ def analyze_data_with_langchain(df):
             "  \"date_columns\": [column names that contain dates],\n"
             "  \"recommendations\": \"explanation points\"\n"
             "}}\n\n"
+            "Make sure to add Cohort, Retention, Segmentation Analysis in the analysis list as well"
             "Ensure the response is valid JSON and uses the exact keys specified above."
             "Put each recommendation on a new line."
         )
@@ -112,6 +113,11 @@ def generate_recommendations_from_file(file_content):
             "Analyze the provided analysis results and provide recommendations. "
             "Focus on key insights and actionable business strategies. "
             "Look for trends across different time periods."
+            "Summarize key trends or patterns (e.g., growth, decline, stability) in numerical terms."
+            "Highlight noteworthy anomalies or outliers (e.g., sudden surges, significant declines)."
+            "Explain the business implications of these changes (e.g., market diversification, customer retention challenges)."
+            "Make sure insights are actionable, concise, and logically derived from the data."
+
         )
         messages = [
             SystemMessage(content="You are a data analysis expert."),
@@ -192,7 +198,7 @@ def main():
                 if selected_filter in df_analysis.columns and selected_value in df_analysis.columns:
                     try:
                         st.write("### Analysis Result:")
-                        st.write(f"Showing {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})")
+                        #st.write(f"Showing {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})")
 
                         #Process time periods if date column is available
                         if selected_date != "None available":
@@ -227,11 +233,11 @@ def main():
                             count_df = result_df.set_index(selected_filter)[['Count']]
 
                         #Display results
-                        st.write("### Pivoted Results (Sum):")
+                        st.write(f"The table shows the result of {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})(Sum)")
                         st.write(sum_df)
-                        st.write("### Pivoted Results (Average):")
+                        st.write(f"The table shows the result of {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})(Average)")
                         st.write(avg_df)
-                        st.write("### Pivoted Results (Count):")
+                        st.write(f"The table shows the result of {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})(Count)")
                         st.write(count_df)
 
                         #Create download button for Excel
@@ -277,7 +283,7 @@ def main():
                     except Exception as e:
                         st.error(f"Recommendation generation error: {e}")
 
-                #Persistent Excel download button, it'll stay there 
+                #Persistent Excel download button
                 st.download_button(
                     label="Download Analysis Results",
                     data=st.session_state.excel_data,
