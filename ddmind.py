@@ -8,6 +8,7 @@ import openai
 import json
 from io import BytesIO
 from datetime import datetime
+import numpy as np
 
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -30,7 +31,7 @@ def analyze_data_with_langchain(df):
             "}}\n\n"
             "Make sure to add Cohort, Retention, Segmentation Analysis in the analysis list as well"
             "Ensure the response is valid JSON and uses the exact keys specified above."
-            "Put each recommendation on a new line."
+            "Put each recommendation on a new line and elaborate the recommendations."
         )
     )
 
@@ -110,10 +111,8 @@ def generate_recommendations_from_file(file_content):
     try:
         chat = ChatOpenAI(model="gpt-4", temperature=0)
         prompt = (
-            "Analyze the provided analysis results and provide recommendations. "
-            "Focus on key insights and actionable business strategies. "
-            "Look for trends across different time periods."
-            "Summarize key trends or patterns (e.g., growth, decline, stability) in numerical terms."
+            "Analyze the provided analysis results and provide recommendations. Focus on key insights and actionable business strategies. "
+            "Look for trends across different time periods.Summarize key trends or patterns (e.g., growth, decline, stability) in numerical terms."
             "Highlight noteworthy anomalies or outliers (e.g., sudden surges, significant declines)."
             "Explain the business implications of these changes (e.g., market diversification, customer retention challenges)."
             "Make sure insights are actionable, concise, and logically derived from the data."
@@ -127,11 +126,29 @@ def generate_recommendations_from_file(file_content):
         return response.content
     except Exception as e:
         return f"Error generating recommendations: {e}"
+    
+
+def calculate_growth(df):
+    """Calculate year-over-year percentage growth."""
+    return df.pct_change(axis=1) * 100
+
+def calculate_concentration(df):
+    """Calculate concentration (percentage of total) for each cell."""
+    return df.div(df.sum(axis=0), axis=1) * 100
+
+def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
+    """Generates a link to download all analysis dataframes as an Excel file with separate sheets."""
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        for sheet_name, df in analysis_dfs.items():
+            df.to_excel(writer, index=True, sheet_name=sheet_name)
+    excel_data = output.getvalue()
+    return excel_data
 
 def main():
     st.title("DDMind")
 
-    #Initialize session state for tracking analysis state
+#Initialize session state for tracking analysis state
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
 
@@ -187,7 +204,6 @@ def main():
                 selected_time = st.selectbox("Time Period", time_periods)
                 selected_date = st.selectbox("Date", date_columns if date_columns else ["None available"])
 
-            #Add Run Analysis button
             if st.button("Run Analysis"):
                 #Prepare dataframe for analysis
                 if selected_subfilter == 'All':
@@ -198,7 +214,6 @@ def main():
                 if selected_filter in df_analysis.columns and selected_value in df_analysis.columns:
                     try:
                         st.write("### Analysis Result:")
-                        #st.write(f"Showing {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})")
 
                         #Process time periods if date column is available
                         if selected_date != "None available":
@@ -206,47 +221,79 @@ def main():
 
                             #Perform analysis with both period and filter
                             analysis_result = df_analysis.groupby(['period', selected_filter])[selected_value].agg(['sum', 'mean', 'count'])
-
-                            #Reset index to make the period and filter columns regular columns
                             result_df = analysis_result.reset_index()
-
-                            #Rename columns for clarity
                             result_df.columns = ['Time Period', selected_filter, 'Sum', 'Average', 'Count']
-
-                            #Sort by Time Period
                             result_df = result_df.sort_values('Time Period')
 
-                            #Create separate DataFrames for Sum, Average, and Count
-                            sum_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Sum')
+                            #Create base DataFrames
+                            value_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Sum')
                             avg_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Average')
                             count_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Count')
+
+                            #Calculate additional metrics
+                            total_sum = value_df.sum()
+                            pct_df = value_df.div(total_sum) * 100
+                            growth_df = calculate_growth(value_df)
+                            concentration_df = calculate_concentration(value_df)
 
                         else:
                             #Fallback to regular analysis without time period
                             analysis_result = df_analysis.groupby(selected_filter)[selected_value].agg(['sum', 'mean', 'count'])
                             result_df = analysis_result.reset_index()
-                            result_df.columns = [selected_filter, 'Sum', 'Average', 'Count']
-
-                            #Create separate DataFrames for Sum, Average, and Count
-                            sum_df = result_df.set_index(selected_filter)[['Sum']]
+                            
+                            #Create base DataFrames
+                            value_df = result_df.set_index(selected_filter)[['Sum']]
                             avg_df = result_df.set_index(selected_filter)[['Average']]
                             count_df = result_df.set_index(selected_filter)[['Count']]
+                            pct_df = value_df.div(value_df.sum()) * 100
+                            growth_df = pd.DataFrame(index=value_df.index, columns=['Growth'])
+                            concentration_df = calculate_concentration(value_df)
 
-                        #Display results
-                        st.write(f"The table shows the result of {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})(Sum)")
-                        st.write(sum_df)
-                        st.write(f"The table shows the result of {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})(Average)")
-                        st.write(avg_df)
-                        st.write(f"The table shows the result of {selected_analysis} of {selected_value} filtered by {selected_filter} - {selected_subfilter} ({selected_time})(Count)")
-                        st.write(count_df)
+                        #Create tabs for different views
+                        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+                            "Value", "Percentage", "Average", 
+                            "Percentage Growth", "Count", "Concentration"
+                        ])
 
-                        #Create download button for Excel
-                        excel_data = to_excel_download_link(sum_df, avg_df, count_df)
+                        with tab1:
+                            st.write(f"Value Analysis of {selected_value}")
+                            st.write(value_df)
+
+                        with tab2:
+                            st.write(f"Percentage Distribution of {selected_value}")
+                            st.write(pct_df.round(2))
+
+                        with tab3:
+                            st.write(f"Average Analysis of {selected_value}")
+                            st.write(avg_df.round(2))
+
+                        with tab4:
+                            st.write(f"Year-over-Year Growth of {selected_value} (%)")
+                            st.write(growth_df.round(2))
+
+                        with tab5:
+                            st.write(f"Count Analysis of {selected_value}")
+                            st.write(count_df)
+
+                        with tab6:
+                            st.write(f"Concentration Analysis of {selected_value} (%)")
+                            st.write(concentration_df.round(2))
+
+                        #Store all analysis DataFrames in a dictionary
+                        analysis_dfs = {
+                            "Value": value_df,
+                            "Percentage": pct_df,
+                            "Average": avg_df,
+                            "Growth": growth_df,
+                            "Count": count_df,
+                            "Concentration": concentration_df
+                        }
+
+                        #Create Excel data with all sheets
+                        excel_data = to_excel_download_link(analysis_dfs)
 
                         #Store results in session state
-                        st.session_state.sum_df = sum_df
-                        st.session_state.avg_df = avg_df
-                        st.session_state.count_df = count_df
+                        st.session_state.analysis_dfs = analysis_dfs
                         st.session_state.analysis_complete = True
                         st.session_state.excel_data = excel_data
 
@@ -259,21 +306,11 @@ def main():
             if st.session_state.analysis_complete:
                 if st.button("Insights on Results"):
                     try:
-                        #Retrieve DataFrames from session state
-                        sum_summary = st.session_state.sum_df.to_string()
-                        avg_summary = st.session_state.avg_df.to_string()
-                        count_summary = st.session_state.count_df.to_string()
-
-                        full_summary = f"""
-                        Sum Analysis:
-                        {sum_summary}
-
-                        Average Analysis:
-                        {avg_summary}
-
-                        Count Analysis:
-                        {count_summary}
-                        """
+                        #Combine all analysis results for recommendations
+                        full_summary = "\n\n".join([
+                            f"{name} Analysis:\n{df.to_string()}"
+                            for name, df in st.session_state.analysis_dfs.items()
+                        ])
 
                         with st.spinner("Generating Insights..."):
                             recommendations = generate_recommendations_from_file(full_summary)
@@ -291,9 +328,8 @@ def main():
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key="persistent_download_button"
                 )
-
         except Exception as e:
-            st.error(f"Error reading file: {e}")
+                    st.error(f"Error reading file: {e}")
 
 if __name__ == "__main__":
     main()
