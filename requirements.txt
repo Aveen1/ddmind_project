@@ -6,4 +6,5 @@ matplotlib
 seaborn
 langchain
 langchain_community
+plotly
 
