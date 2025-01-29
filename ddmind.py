@@ -9,6 +9,9 @@ import json
 from io import BytesIO
 from datetime import datetime
 import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+
 
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -109,14 +112,36 @@ def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.x
 def generate_recommendations_from_file(file_content):
     """Send analysis result file content to GPT for generating recommendations."""
     try:
-        chat = ChatOpenAI(model="gpt-4", temperature=0)
+        chat = ChatOpenAI(model="gpt-4", temperature=0.5)
         prompt = (
-            "Analyze the provided analysis results and provide recommendations. Focus on key insights and actionable business strategies. "
-            "Look for trends across different time periods.Summarize key trends or patterns (e.g., growth, decline, stability) in numerical terms."
-            "Highlight noteworthy anomalies or outliers (e.g., sudden surges, significant declines)."
-            "Explain the business implications of these changes (e.g., market diversification, customer retention challenges)."
-            "Make sure insights are actionable, concise, and logically derived from the data."
+            """Analyze the provided table data to generate insights focusing on trends, patterns, and business implications. 
+            Use the following examples as references for structuring your analysis, ensuring your output includes relevant metrics, growth percentages, and logical conclusions:
 
+            Examples:
+            "1. CloudPro Services grew from 15.2 million in 2020 to 28.4 million in 2022 before stabilizing at 26.7 million in 2023, demonstrating solid performance despite minor adjustments in demand."
+
+            "2. Two new offerings, StreamFlow and TaskEase, launched in recent years, contributed 1.8 million in 2023, representing initial traction in untapped market segments."
+
+            "3. FlexAssist Solutions showed inconsistent performance, declining from 7.5 million in 2020 to 5.1 million in 2021, but surged by 140 percent to 12.3 million in 2023, highlighting cyclical recovery potential."
+
+            "4. Top-tier services like PrimeSuite accounted for 38 percent of revenue in 2022 but dropped to 32 percent in 2023, indicating diversification and reduced dependency on flagship products."
+
+            "5. Customer loyalty remained a challenge, with a retention rate of 48 percent in 2023, although dollar retention surged to 115 percent, reflecting successful cross-selling strategies."
+
+            "6. On-site Dynamics emerged as the fastest-growing segment with a 275 percent increase from 3.6 million in 2021 to 13.5 million in 2023, showcasing its ability to capitalize on market demand."
+
+            "7. The top 15 percent of clients contributed 88 percent of revenue in 2023, a reduction from 93 percent in 2021, signaling progress in client base diversification."
+
+            "8. The 2019 product cohort saw revenue grow from 18.1 million in 2020 to 25.2 million in 2023, reflecting the ongoing strength of established product lines."
+
+            "9. Customer B experienced 3x growth, with revenue climbing from 12.2 million in 2021 to 37.3 million in 2023, driven by a 400 percent rise in EnterpriseLink Solutions."
+
+            "10. The product portfolio remained strong, retaining all 11 offerings from 2020 to 2023, with the introduction of one new product annually, ensuring measured yet steady innovation."
+
+            - Summarize key trends or patterns (e.g., growth, decline, stability) in numerical terms.
+            - Highlight noteworthy anomalies or outliers (e.g., sudden surges, significant declines).
+            - Explain the business implications of these changes (e.g., market diversification, customer retention challenges).
+            - Make sure insights are actionable, concise, and logically derived from the data."""
         )
         messages = [
             SystemMessage(content="You are a data analysis expert."),
@@ -127,7 +152,6 @@ def generate_recommendations_from_file(file_content):
     except Exception as e:
         return f"Error generating recommendations: {e}"
     
-
 def calculate_growth(df):
     """Calculate year-over-year percentage growth."""
     return df.pct_change(axis=1) * 100
@@ -144,6 +168,42 @@ def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
             df.to_excel(writer, index=True, sheet_name=sheet_name)
     excel_data = output.getvalue()
     return excel_data
+
+def create_line_chart(df, title):
+    """Create a line chart using Plotly."""
+    fig = px.line(df.transpose(), title=title)
+    fig.update_layout(
+        xaxis_title="Time Period",
+        yaxis_title="Value",
+        legend_title="Categories",
+        height=500
+    )
+    return fig
+
+def create_bar_chart(df, title):
+    """Create a bar chart using Plotly."""
+    fig = px.bar(df.transpose(), title=title, barmode='group')
+    fig.update_layout(
+        xaxis_title="Time Period",
+        yaxis_title="Value",
+        legend_title="Categories",
+        height=500
+    )
+    return fig
+
+def create_area_chart(df, title):
+    """Create a stacked area chart using Plotly."""
+    fig = px.area(df.transpose(), title=title)
+    fig.update_layout(
+        xaxis_title="Time Period",
+        yaxis_title="Value",
+        legend_title="Categories",
+        height=500
+    )
+    return fig
+
+
+
 
 def main():
     st.title("DDMind")
@@ -225,12 +285,10 @@ def main():
                             result_df.columns = ['Time Period', selected_filter, 'Sum', 'Average', 'Count']
                             result_df = result_df.sort_values('Time Period')
 
-                            #Create base DataFrames
+                            #Create base DataFrames,Calculate additional metrics
                             value_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Sum')
                             avg_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Average')
                             count_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Count')
-
-                            #Calculate additional metrics
                             total_sum = value_df.sum()
                             pct_df = value_df.div(total_sum) * 100
                             growth_df = calculate_growth(value_df)
@@ -258,26 +316,60 @@ def main():
                         with tab1:
                             st.write(f"Value Analysis of {selected_value}")
                             st.write(value_df)
+                            st.plotly_chart(create_line_chart(value_df, f"Value Trend of {selected_value}"))
+                            st.plotly_chart(create_bar_chart(value_df, f"Value Distribution of {selected_value}"))
 
                         with tab2:
                             st.write(f"Percentage Distribution of {selected_value}")
                             st.write(pct_df.round(2))
+                            st.plotly_chart(create_area_chart(pct_df, f"Percentage Distribution of {selected_value} Over Time"))
+                            st.plotly_chart(create_bar_chart(pct_df, f"Percentage Distribution by Category"))
+
 
                         with tab3:
                             st.write(f"Average Analysis of {selected_value}")
                             st.write(avg_df.round(2))
+                            st.plotly_chart(create_line_chart(avg_df, f"Average Trend of {selected_value}"))
+                            st.plotly_chart(create_bar_chart(avg_df, f"Average Distribution by Category"))
 
                         with tab4:
                             st.write(f"Year-over-Year Growth of {selected_value} (%)")
                             st.write(growth_df.round(2))
+                            st.plotly_chart(create_bar_chart(growth_df, f"Growth Rate by Category"))
+                            # Add a heatmap for growth rates
+                            fig_heatmap = px.imshow(growth_df,
+                                                  title=f"Growth Rate Heatmap for {selected_value}",
+                                                  labels=dict(x="Time Period", y="Category", color="Growth Rate (%)"))
+                            st.plotly_chart(fig_heatmap)
 
                         with tab5:
                             st.write(f"Count Analysis of {selected_value}")
                             st.write(count_df)
+                            st.plotly_chart(create_line_chart(count_df, f"Count Trend of {selected_value}"))
+                            st.plotly_chart(create_bar_chart(count_df, f"Count Distribution by Category"))
 
                         with tab6:
                             st.write(f"Concentration Analysis of {selected_value} (%)")
                             st.write(concentration_df.round(2))
+                            st.plotly_chart(create_area_chart(concentration_df, f"Concentration Over Time"))
+                            #Add a treemap for concentration
+                            if len(concentration_df.columns) > 0:
+                                last_period = concentration_df.columns[-1]
+                                #Create a DataFrame in the format needed for treemap
+                                treemap_df = pd.DataFrame({
+                                    'Category': concentration_df.index,
+                                    'Value': concentration_df[last_period]
+                                }).reset_index(drop=True)
+                                
+                                fig_treemap = px.treemap(
+                                    treemap_df,
+                                    path=['Category'],
+                                    values='Value',
+                                    title=f"Concentration Distribution for {last_period}"
+                                )
+                                fig_treemap.update_traces(textinfo="label+value+percent parent")
+                                fig_treemap.update_layout(height=500)
+                                st.plotly_chart(fig_treemap)
 
                         #Store all analysis DataFrames in a dictionary
                         analysis_dfs = {
