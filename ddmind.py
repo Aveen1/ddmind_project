@@ -16,6 +16,45 @@ import plotly.graph_objects as go
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+#Date column issue
+def create_date_column(df):
+    """
+    Create a date column if one doesn't exist in the DataFrame.
+    Handles various date-related columns like Year, Month, Quarter, etc.
+    """
+    #Check if any date column already exists
+    date_columns = [col for col in df.columns if 'date' in col.lower()]
+    
+    if not date_columns:
+        #Check for year column
+        year_cols = [col for col in df.columns if col.lower() in ['year', 'fiscal_year', 'fy']]
+        
+        if year_cols:
+            year_col = year_cols[0]
+            #Convert year to datetime
+            try:
+                #Handle string years
+                df['year_temp'] = pd.to_numeric(df[year_col], errors='coerce')
+                #Check if years are reasonable (between 1900 and current year + 10)
+                current_year = datetime.now().year
+                df.loc[df['year_temp'] < 1900, 'year_temp'] = np.nan
+                df.loc[df['year_temp'] > current_year + 10, 'year_temp'] = np.nan
+                
+                #Create date column (defaulting to January 1st of each year)
+                df['Date'] = pd.to_datetime(df['year_temp'].astype(int).astype(str) + '-01-01')
+                df = df.drop('year_temp', axis=1)
+                
+                return df
+            except Exception as e:
+                st.error(f"Error creating date from year: {e}")
+                return df
+        else:
+            #If no year column exists, create a date column based on the current date
+            st.warning("No date or year column found. Using current date for analysis.")
+            df['Date'] = datetime.now().date()
+            
+    return df
+
 def analyze_data_with_langchain(df):
     """Uses LangChain to structure the ChatGPT prompt and retrieve recommendations."""
     prompt_template = PromptTemplate(
@@ -83,21 +122,34 @@ def analyze_data_with_langchain(df):
 def process_time_period(df, date_column, time_period):
     """Process the dataframe according to the selected time period."""
     try:
-        #Ensure date column is datetime
-        df[date_column] = pd.to_datetime(df[date_column])
-
-        #Create period labels based on selected time period
-        if time_period == "Yearly":
-            df['period'] = df[date_column].dt.year.astype(str)
-        elif time_period == "Quarterly":
-            df['period'] = df[date_column].dt.to_period('Q').astype(str)
-        elif time_period == "Monthly":
-            df['period'] = df[date_column].dt.strftime('%Y-%m')
+        #Create a copy to avoid modifying the original
+        df = df.copy()
+        
+        #If the date_column is 'Date' (our created column), ensure it's handled properly
+        if date_column == 'Date' and 'Year' in df.columns:
+            #Use the existing Year column for period creation
+            if time_period == "Yearly":
+                df['period'] = df['Year'].astype(str)
+            elif time_period == "Quarterly":
+                df['period'] = df['Year'].astype(str) + '-Q' + '1'  #Default to Q1 if only year is available
+            elif time_period == "Monthly":
+                df['period'] = df['Year'].astype(str) + '-01'  #Default to January if only year is available
+        else:
+            #Standard date processing
+            df[date_column] = pd.to_datetime(df[date_column])
+            
+            if time_period == "Yearly":
+                df['period'] = df[date_column].dt.year.astype(str)
+            elif time_period == "Quarterly":
+                df['period'] = df[date_column].dt.to_period('Q').astype(str)
+            elif time_period == "Monthly":
+                df['period'] = df[date_column].dt.strftime('%Y-%m')
 
         return df
     except Exception as e:
         st.error(f"Error processing time period: {e}")
         return df
+
 
 def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.xlsx"):
     """Generates a link to download the dataframes as an Excel file with separate sheets."""
@@ -221,6 +273,9 @@ def main():
                 df = pd.read_csv(uploaded_file)
             else:
                 df = pd.read_excel(uploaded_file)
+
+            #Create date column if needed
+            df = create_date_column(df)
 
             st.write("### Extracted Data:")
             st.write(df)
