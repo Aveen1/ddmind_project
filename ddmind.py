@@ -258,9 +258,90 @@ def create_area_chart(df, title):
 
 
 def main():
+    #Custom CSS for sidebar styling
+    st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            background-color: rgba(27, 36, 124, 255);
+            padding-top: 1rem;
+        }
+        [data-testid="stSidebar"] > div:first-child {
+            background-color: rgba(27, 36, 124, 255);
+        }
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+            color: white;
+        }
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] code {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        [data-testid="stSidebar"] .stSelectbox label,
+        [data-testid="stSidebar"] .stSlider label,
+        [data-testid="stSidebar"] .stNumberInput label {
+            color: white !important;
+        }
+        [data-testid="stSidebar"] .stCheckbox label {
+            color: white !important;
+        }
+        [data-testid="stSidebar"] .stTitle {
+            color: white !important;
+            
+        }
+        [data-testid="stSidebar"] .stInfo {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+        }
+        [data-testid="stSidebar"] .stInfo svg {
+            fill: white;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    #Create sidebar
+    with st.sidebar:
+        st.title("DDMind")
+        
+        # Add app description
+        st.markdown("### About")
+        st.info("""
+        DDMind is a data analysis tool that helps you:
+        - Upload and analyze Excel/CSV files
+        - Get AI-powered recommendations
+        - Generate interactive visualizations
+        - Export detailed analysis reports
+        """)
+        
+        #Add file format info
+        st.markdown("### Supported File Formats")
+        st.write("- Excel (.xlsx, .xls)")
+        st.write("- CSV (.csv)")
+        
+        #Add analysis options in sidebar
+        st.markdown("### Analysis Settings")
+        show_raw_data = st.checkbox("Show Raw Data", value=False)
+        enable_ai_insights = st.checkbox("Enable AI Insights", value=True)
+        chart_height = st.slider("Chart Height", min_value=300, max_value=800, value=500, step=50)
+        
+        #Add theme selection
+        st.markdown("### Visualization Theme")
+        chart_theme = st.selectbox(
+            "Select Chart Theme",
+            ["plotly", "plotly_white", "plotly_dark", "seaborn"]
+        )
+        
+        #Add export settings
+        st.markdown("### Export Settings")
+        decimal_places = st.number_input("Decimal Places", min_value=0, max_value=5, value=2)
+        
+        # Add footer
+        st.markdown("---")
+        st.markdown("Made with ❤️ by DDMind")
+
+
     st.title("DDMind")
 
-#Initialize session state for tracking analysis state
+    #Initialize session state for tracking analysis state
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
 
