@@ -118,7 +118,7 @@ def analyze_data_with_langchain(df):
             "date_columns": date_columns,
             "recommendations": f"Unable to generate detailed recommendations. Using basic analysis options. Error: {str(e)}"
         }
-
+#time period 
 def process_time_period(df, date_column, time_period):
     """Process the dataframe according to the selected time period."""
     try:
@@ -149,7 +149,6 @@ def process_time_period(df, date_column, time_period):
     except Exception as e:
         st.error(f"Error processing time period: {e}")
         return df
-
 
 def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.xlsx"):
     """Generates a link to download the dataframes as an Excel file with separate sheets."""
@@ -203,7 +202,71 @@ def generate_recommendations_from_file(file_content):
         return response.content
     except Exception as e:
         return f"Error generating recommendations: {e}"
+#tab insights
+def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
+    """Generate GPT insights for specific analysis tab."""
+    try:
+        chat = ChatOpenAI(model="gpt-4", temperature=0.5)
+        
+        # Create specific prompts based on analysis type
+        prompts = {
+            "value": f"""Analyze the {selected_value} values across different {selected_filter} categories:
+                     1. Identify the top and bottom performers
+                     2. Point out any significant trends or patterns
+                     3. Highlight any notable changes between time periods
+                     Data: {df.to_string()}""",
+                     
+            "total_sum": f"""Analyze the total sum trends for {selected_value}:
+                         1. Describe the overall trend (growing, declining, stable)
+                         2. Calculate and mention the total growth rate
+                         3. Identify peak and lowest periods
+                         Data: {df.to_string()}""",
+                         
+            "percentage": f"""Analyze the percentage distribution of {selected_value}:
+                         1. Identify dominant categories and their share
+                         2. Note any significant shifts in distribution
+                         3. Point out categories with growing or declining share
+                         Data: {df.to_string()}""",
+                         
+            "average": f"""Analyze the average {selected_value} trends:
+                       1. Compare averages across categories
+                       2. Identify any outliers or unusual patterns
+                       3. Comment on the stability of averages over time
+                       Data: {df.to_string()}""",
+                       
+            "growth": f"""Analyze the growth patterns in {selected_value}:
+                      1. Identify highest and lowest growth rates
+                      2. Point out any consistent growth patterns
+                      3. Flag any concerning decline trends
+                      Data: {df.to_string()}""",
+                      
+            "count": f"""Analyze the count distribution of {selected_value}:
+                     1. Identify most and least frequent categories
+                     2. Comment on count distribution changes
+                     3. Point out any unusual patterns
+                     Data: {df.to_string()}""",
+                     
+            "concentration": f"""Analyze the concentration of {selected_value}:
+                            1. Identify highly concentrated areas
+                            2. Comment on concentration changes over time
+                            3. Assess concentration risk if applicable
+                            Data: {df.to_string()}"""
+        }
+        
+        messages = [
+            SystemMessage(content="""You are a data analysis expert. Provide clear, concise insights in bullet points.
+                         Focus on business implications and actionable findings.
+                         Keep the analysis to 3-5 key points."""),
+            HumanMessage(content=prompts[analysis_type.lower()])
+        ]
+        
+        response = chat(messages)
+        return response.content
+    except Exception as e:
+        return f"Error generating insights: {e}"
     
+
+#formulas for tabs
 def calculate_growth(df):
     """Calculate year-over-year percentage growth."""
     return df.pct_change(axis=1) * 100
@@ -221,6 +284,7 @@ def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
     excel_data = output.getvalue()
     return excel_data
 
+#charts
 def create_line_chart(df, title):
     """Create a line chart using Plotly."""
     fig = px.line(df.transpose(), title=title)
@@ -390,6 +454,8 @@ def main():
                             pct_df = value_df.div(total_sum) * 100
                             growth_df = calculate_growth(value_df)
                             concentration_df = calculate_concentration(value_df)
+                            total_sum_df = pd.DataFrame(value_df.sum()).T
+                            total_sum_df.index = ['Total']
 
                         else:
                             #Fallback to regular analysis without time period
@@ -405,8 +471,8 @@ def main():
                             concentration_df = calculate_concentration(value_df)
 
                         #Create tabs for different views
-                        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-                            "Value", "Percentage", "Average", 
+                        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+                            "Value","Total Sum", "Percentage", "Average", 
                             "Percentage Growth", "Count", "Concentration"
                         ])
 
@@ -415,37 +481,68 @@ def main():
                             st.write(value_df)
                             st.plotly_chart(create_line_chart(value_df, f"Value Trend of {selected_value}"))
                             st.plotly_chart(create_bar_chart(value_df, f"Value Distribution of {selected_value}"))
-
+                            with st.expander("📊 Value Analysis Insights", expanded=True):
+                                with st.spinner("Generating value insights..."):
+                                    value_insights = generate_tab_insights(value_df, "value", selected_value, selected_filter)
+                                    st.write(value_insights)
+                        
                         with tab2:
+                            st.write(f"Total Sum Analysis of {selected_value}")
+                            st.write(total_sum_df)
+                            st.plotly_chart(create_line_chart(total_sum_df, f"Total Sum Trend of {selected_value}"))
+                            st.plotly_chart(create_bar_chart(total_sum_df, f"Total Sum Distribution of {selected_value}"))
+                            with st.expander("📊 Total Sum Analysis Insights", expanded=True):
+                                with st.spinner("Generating total sum insights..."):
+                                    total_sum_insights = generate_tab_insights(total_sum_df, "total_sum", selected_value, selected_filter)
+                                    st.write(total_sum_insights)
+
+                        with tab3:
                             st.write(f"Percentage Distribution of {selected_value}")
                             st.write(pct_df.round(2))
                             st.plotly_chart(create_area_chart(pct_df, f"Percentage Distribution of {selected_value} Over Time"))
                             st.plotly_chart(create_bar_chart(pct_df, f"Percentage Distribution by Category"))
+                            with st.expander("📊 Percentage Analysis Insights", expanded=True):
+                                with st.spinner("Generating percentage insights..."):
+                                    percentage_insights = generate_tab_insights(pct_df, "percentage", selected_value, selected_filter)
+                                    st.write(percentage_insights)
 
 
-                        with tab3:
+                        with tab4:
                             st.write(f"Average Analysis of {selected_value}")
                             st.write(avg_df.round(2))
                             st.plotly_chart(create_line_chart(avg_df, f"Average Trend of {selected_value}"))
                             st.plotly_chart(create_bar_chart(avg_df, f"Average Distribution by Category"))
+                            with st.expander("📊 Average Analysis Insights", expanded=True):
+                                with st.spinner("Generating average insights..."):
+                                    average_insights = generate_tab_insights(avg_df, "average", selected_value, selected_filter)
+                                    st.write(average_insights)
 
-                        with tab4:
+                        with tab5:
                             st.write(f"Year-over-Year Growth of {selected_value} (%)")
                             st.write(growth_df.round(2))
                             st.plotly_chart(create_bar_chart(growth_df, f"Growth Rate by Category"))
-                            # Add a heatmap for growth rates
+                            #Add a heatmap for growth rates
                             fig_heatmap = px.imshow(growth_df,
                                                   title=f"Growth Rate Heatmap for {selected_value}",
                                                   labels=dict(x="Time Period", y="Category", color="Growth Rate (%)"))
                             st.plotly_chart(fig_heatmap)
+                            with st.expander("📊 Growth Analysis Insights", expanded=True):
+                                with st.spinner("Generating growth insights..."):
+                                    growth_insights = generate_tab_insights(growth_df, "growth", selected_value, selected_filter)
+                                    st.write(growth_insights)
 
-                        with tab5:
+
+                        with tab6:
                             st.write(f"Count Analysis of {selected_value}")
                             st.write(count_df)
                             st.plotly_chart(create_line_chart(count_df, f"Count Trend of {selected_value}"))
                             st.plotly_chart(create_bar_chart(count_df, f"Count Distribution by Category"))
+                            with st.expander("📊 Count Analysis Insights", expanded=True):
+                                with st.spinner("Generating count insights..."):
+                                    count_insights = generate_tab_insights(count_df, "count", selected_value, selected_filter)
+                                    st.write(count_insights)
 
-                        with tab6:
+                        with tab7:
                             st.write(f"Concentration Analysis of {selected_value} (%)")
                             st.write(concentration_df.round(2))
                             st.plotly_chart(create_area_chart(concentration_df, f"Concentration Over Time"))
@@ -467,10 +564,17 @@ def main():
                                 fig_treemap.update_traces(textinfo="label+value+percent parent")
                                 fig_treemap.update_layout(height=500)
                                 st.plotly_chart(fig_treemap)
+                            with st.expander("📊 Concentration Analysis Insights", expanded=True):
+                                with st.spinner("Generating concentration insights..."):
+                                    concentration_insights = generate_tab_insights(concentration_df, "concentration", selected_value, selected_filter)
+                                    st.write(concentration_insights)
+
+
 
                         #Store all analysis DataFrames in a dictionary
                         analysis_dfs = {
                             "Value": value_df,
+                            "Total Sum": total_sum_df,
                             "Percentage": pct_df,
                             "Average": avg_df,
                             "Growth": growth_df,
