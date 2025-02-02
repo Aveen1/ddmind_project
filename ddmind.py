@@ -262,54 +262,26 @@ def main():
     st.markdown("""
         <style>
         [data-testid="stSidebar"] {
-            background-color: rgba(27, 36, 124, 255);
-            padding-top: 1rem;
-        }
-        [data-testid="stSidebar"] > div:first-child {
-            background-color: rgba(27, 36, 124, 255);
-        }
+            background-color: rgba(10, 8, 41, 255);
+        }    
         [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
             color: white;
-        }
-        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] code {
-            color: white;
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-        [data-testid="stSidebar"] .stSelectbox label,
-        [data-testid="stSidebar"] .stSlider label,
-        [data-testid="stSidebar"] .stNumberInput label {
-            color: white !important;
-        }
-        [data-testid="stSidebar"] .stCheckbox label {
-            color: white !important;
-        }
-        [data-testid="stSidebar"] .stTitle {
-            color: white !important;
-            
-        }
-        [data-testid="stSidebar"] .stInfo {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: none;
-        }
-        [data-testid="stSidebar"] .stInfo svg {
-            fill: white;
         }
         </style>
     """, unsafe_allow_html=True)
 
     #Create sidebar
     with st.sidebar:
-        st.title("DDMind")
+        st.title("DDMind.ai")
         
         # Add app description
         st.markdown("### About")
         st.info("""
         DDMind is a data analysis tool that helps you:
         - Upload and analyze Excel/CSV files
-        - Get AI-powered recommendations
-        - Generate interactive visualizations
-        - Export detailed analysis reports
+        - Get AI-powered Recommendations
+        - Generate Interactive Visualizations
+        - Export Detailed Analysis Reports
         """)
         
         #Add file format info
@@ -321,18 +293,7 @@ def main():
         st.markdown("### Analysis Settings")
         show_raw_data = st.checkbox("Show Raw Data", value=False)
         enable_ai_insights = st.checkbox("Enable AI Insights", value=True)
-        chart_height = st.slider("Chart Height", min_value=300, max_value=800, value=500, step=50)
         
-        #Add theme selection
-        st.markdown("### Visualization Theme")
-        chart_theme = st.selectbox(
-            "Select Chart Theme",
-            ["plotly", "plotly_white", "plotly_dark", "seaborn"]
-        )
-        
-        #Add export settings
-        st.markdown("### Export Settings")
-        decimal_places = st.number_input("Decimal Places", min_value=0, max_value=5, value=2)
         
         # Add footer
         st.markdown("---")
