@@ -40,8 +40,14 @@ def create_date_column(df):
                 df.loc[df['year_temp'] < 1900, 'year_temp'] = np.nan
                 df.loc[df['year_temp'] > current_year + 10, 'year_temp'] = np.nan
                 
-                #Create date column (defaulting to January 1st of each year)
-                df['Date'] = pd.to_datetime(df['year_temp'].astype(int).astype(str) + '-01-01')
+                #Check if month column exists
+                if 'Month' in df.columns:
+                    #Create date column using year and month columns, setting to last day of month
+                    df['Date'] = pd.to_datetime(dict(year=df['year_temp'], month=df['Month'], day=1)) + pd.offsets.MonthEnd(0)
+                else:
+                    #If no month column, default to last day of the year
+                    df['Date'] = pd.to_datetime(df['year_temp'].astype(int).astype(str) + '-12-31')
+                
                 df = df.drop('year_temp', axis=1)
                 
                 return df
@@ -71,7 +77,7 @@ def analyze_data_with_langchain(df):
             "  \"date_columns\": [column names that contain dates],\n"
             "  \"recommendations\": \"explanation points\"\n"
             "}}\n\n"
-            "Make sure to add Cohort, Retention, Segmentation Analysis in the analysis list as well"
+            "Make sure to add Cohort, Retention, Segmentation Analysis in the analysis list, focusing on these aspects if they provide meaningful insights given the specific dataset and business questions at hand."
             "Ensure the response is valid JSON and uses the exact keys specified above."
             "Put each recommendation on a new line and elaborate the recommendations."
         )
@@ -163,7 +169,7 @@ def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.x
 def generate_recommendations_from_file(file_content):
     """Send analysis result file content to GPT for generating recommendations."""
     try:
-        chat = ChatOpenAI(model="gpt-4", temperature=0.5)
+        chat = ChatOpenAI(model="gpt-4o", temperature=0)
         prompt = (
             """Analyze the provided table data to generate insights focusing on trends, patterns, and business implications. 
             Use the following examples as references for structuring your analysis, ensuring your output includes relevant metrics, growth percentages, and logical conclusions:
@@ -206,7 +212,7 @@ def generate_recommendations_from_file(file_content):
 def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
     """Generate GPT insights for specific analysis tab."""
     try:
-        chat = ChatOpenAI(model="gpt-4", temperature=0.5)
+        chat = ChatOpenAI(model="gpt-4o", temperature=0)
         
         # Create specific prompts based on analysis type
         prompts = {
@@ -264,8 +270,6 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
         return response.content
     except Exception as e:
         return f"Error generating insights: {e}"
-    
-
 #formulas for tabs
 def calculate_growth(df):
     """Calculate year-over-year percentage growth."""
@@ -283,6 +287,41 @@ def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
             df.to_excel(writer, index=True, sheet_name=sheet_name)
     excel_data = output.getvalue()
     return excel_data
+
+#Concentration Analysis
+def create_top_n_concentration(df, n_list=[10, 20, 50, 100]):
+    """Calculate concentration for top N customers."""
+    results = {}
+    df_last_period = df[df.columns[-1]].sort_values(ascending=False)
+    total_sum = df_last_period.sum()
+    
+    for n in n_list:
+        if len(df_last_period) >= n:
+            top_n = df_last_period.head(n)
+            concentration = (top_n.sum() / total_sum) * 100
+            results[f'Top {n}'] = {
+                'count': n,
+                'sum': top_n.sum(),
+                'concentration': concentration,
+                'customers': top_n.index.tolist()
+            }
+    
+    return results
+
+def create_top_n_table(results):
+    """Create a formatted table for top N concentration results."""
+    data = {
+        'Customer Count': [],
+        'Total Value': [],
+        'Concentration (%)': []
+    }
+    
+    for key, value in results.items():
+        data['Customer Count'].append(value['count'])
+        data['Total Value'].append(value['sum'])
+        data['Concentration (%)'].append(round(value['concentration'], 2))
+    
+    return pd.DataFrame(data, index=[k for k in results.keys()])
 
 #charts
 def create_line_chart(df, title):
@@ -359,7 +398,7 @@ def main():
         enable_ai_insights = st.checkbox("Enable AI Insights", value=True)
         
         
-        # Add footer
+        #Add footer
         st.markdown("---")
         st.markdown("Made with ❤️ by DDMind")
 
@@ -420,7 +459,7 @@ def main():
                     selected_subfilter = st.selectbox(f"Specific {selected_filter}", subfilter_options)
 
             with col2:
-                st.write("###  ")  # Empty header for alignment
+                st.write("###  ")  #Empty header for alignment
                 selected_value = st.selectbox("Value", value_columns)
                 selected_time = st.selectbox("Time Period", time_periods)
                 selected_date = st.selectbox("Date", date_columns if date_columns else ["None available"])
@@ -473,7 +512,7 @@ def main():
                         #Create tabs for different views
                         tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
                             "Value","Total Sum", "Percentage", "Average", 
-                            "Percentage Growth", "Count", "Concentration"
+                            "Percentage Growth", "Count", "Concentration Analysis"
                         ])
 
                         with tab1:
@@ -543,32 +582,87 @@ def main():
                                     st.write(count_insights)
 
                         with tab7:
-                            st.write(f"Concentration Analysis of {selected_value} (%)")
-                            st.write(concentration_df.round(2))
-                            st.plotly_chart(create_area_chart(concentration_df, f"Concentration Over Time"))
-                            #Add a treemap for concentration
-                            if len(concentration_df.columns) > 0:
-                                last_period = concentration_df.columns[-1]
-                                #Create a DataFrame in the format needed for treemap
-                                treemap_df = pd.DataFrame({
-                                    'Category': concentration_df.index,
-                                    'Value': concentration_df[last_period]
-                                }).reset_index(drop=True)
+                                subtab1, subtab2 = st.tabs(["General Concentration", "Top Customers"])
                                 
-                                fig_treemap = px.treemap(
-                                    treemap_df,
-                                    path=['Category'],
-                                    values='Value',
-                                    title=f"Concentration Distribution for {last_period}"
-                                )
-                                fig_treemap.update_traces(textinfo="label+value+percent parent")
-                                fig_treemap.update_layout(height=500)
-                                st.plotly_chart(fig_treemap)
-                            with st.expander("📊 Concentration Analysis Insights", expanded=True):
-                                with st.spinner("Generating concentration insights..."):
-                                    concentration_insights = generate_tab_insights(concentration_df, "concentration", selected_value, selected_filter)
-                                    st.write(concentration_insights)
-
+                                with subtab1:
+                                    st.write(f"Concentration Analysis of {selected_value} (%)")
+                                    st.write(concentration_df.round(2))
+                                    st.plotly_chart(create_area_chart(concentration_df, f"Concentration Over Time"))
+                                    if len(concentration_df.columns) > 0:
+                                        last_period = concentration_df.columns[-1]
+                                        treemap_df = pd.DataFrame({
+                                            'Category': concentration_df.index,
+                                            'Value': concentration_df[last_period]
+                                        }).reset_index(drop=True)
+                                        
+                                        fig_treemap = px.treemap(
+                                            treemap_df,
+                                            path=['Category'],
+                                            values='Value',
+                                            title=f"Concentration Distribution for {last_period}"
+                                        )
+                                        fig_treemap.update_traces(textinfo="label+value+percent parent")
+                                        fig_treemap.update_layout(height=500)
+                                        st.plotly_chart(fig_treemap)
+                                        
+                                    with st.expander("📊 Concentration Analysis Insights", expanded=True):
+                                        with st.spinner("Generating concentration insights..."):
+                                            concentration_insights = generate_tab_insights(concentration_df, "concentration", selected_value, selected_filter)
+                                            st.write(concentration_insights)
+                                
+                                with subtab2:
+                                    st.write("### Top Customers Concentration Analysis")
+                                    
+                                    #Calculate top N concentration
+                                    top_n_results = create_top_n_concentration(value_df)
+                                    
+                                    #Display summary table
+                                    summary_df = create_top_n_table(top_n_results)
+                                    st.write("#### Summary of Top Customer Concentration")
+                                    st.write(summary_df)
+                                    
+                                    #Create visualization for top N concentration
+                                    fig_top_n = px.bar(
+                                        summary_df,
+                                        y='Concentration (%)',
+                                        title="Concentration by Top N Customers",
+                                        labels={'index': 'Customer Group', 'value': 'Concentration (%)'}
+                                    )
+                                    fig_top_n.update_layout(height=400)
+                                    st.plotly_chart(fig_top_n)
+                                    
+                                    #Display detailed customer lists
+                                    st.write("#### Detailed Customer Lists")
+                                    for group, data in top_n_results.items():
+                                        with st.expander(f"{group} Details"):
+                                            st.write(f"Total Value: {data['sum']:,.2f}")
+                                            st.write(f"Concentration: {data['concentration']:.2f}%")
+                                            st.write("Customers:")
+                                            customer_df = pd.DataFrame({
+                                                'Customer': data['customers'],
+                                                'Value': value_df.loc[data['customers'], value_df.columns[-1]]
+                                            }).sort_values('Value', ascending=False)
+                                            customer_df['Cumulative %'] = (customer_df['Value'].cumsum() / customer_df['Value'].sum() * 100).round(2)
+                                            st.write(customer_df)
+                                    
+                                    #Generate insights for top customer concentration
+                                    with st.expander("📊 Top Customer Concentration Insights", expanded=True):
+                                        with st.spinner("Generating top customer insights..."):
+                                            top_customer_prompt = f"""Analyze the customer concentration data:
+                                                1. Comment on the distribution of value across customer segments
+                                                2. Identify concentration risk levels
+                                                3. Compare different customer tiers
+                                                4. Suggest any risk mitigation strategies if needed
+                                                Data: {summary_df.to_string()}"""
+                                            
+                                            messages = [
+                                                SystemMessage(content="You are a data analysis expert. Provide clear, concise insights about customer concentration and associated risks."),
+                                                HumanMessage(content=top_customer_prompt)
+                                            ]
+                                            
+                                            chat = ChatOpenAI(model="gpt-4o", temperature=0)
+                                            top_customer_insights = chat(messages)
+                                            st.write(top_customer_insights.content)
 
 
                         #Store all analysis DataFrames in a dictionary
