@@ -1,4 +1,3 @@
-import streamlit as st
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.schema import SystemMessage, HumanMessage
@@ -13,33 +12,272 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-#Import custom modules
-from data_processing import (
-    create_date_column, 
-    process_time_period, 
-    to_excel_download_link
-    
-)
-from data_analysis import (
-    calculate_growth, 
-    calculate_concentration, 
-    create_top_n_concentration, 
-    create_top_n_table
-)
-from chart_generation import (
-    create_line_chart, 
-    create_bar_chart, 
-    create_area_chart,
-    create_heatmap_chart
-)
-from ai_insights import (
-    analyze_data_with_langchain,
-    generate_tab_insights,
-    generate_recommendations_from_file
-)
 
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
+
+#Date column issue
+def create_date_column(df):
+    """
+    Create a date column if one doesn't exist in the DataFrame.
+    Handles various date-related columns like Year, Month, Quarter, etc.
+    """
+    #Check if any date column already exists
+    date_columns = [col for col in df.columns if 'date' in col.lower()]
+    
+    if not date_columns:
+        #Check for year column
+        year_cols = [col for col in df.columns if col.lower() in ['year', 'fiscal_year', 'fy']]
+        
+        if year_cols:
+            year_col = year_cols[0]
+            #Convert year to datetime
+            try:
+                #Handle string years
+                df['year_temp'] = pd.to_numeric(df[year_col], errors='coerce')
+                #Check if years are reasonable (between 1900 and current year + 10)
+                current_year = datetime.now().year
+                df.loc[df['year_temp'] < 1900, 'year_temp'] = np.nan
+                df.loc[df['year_temp'] > current_year + 10, 'year_temp'] = np.nan
+                
+                #Check if month column exists
+                if 'Month' in df.columns:
+                    #Create date column using year and month columns, setting to last day of month
+                    df['Date'] = pd.to_datetime(dict(year=df['year_temp'], month=df['Month'], day=1)) + pd.offsets.MonthEnd(0)
+                else:
+                    #If no month column, default to last day of the year
+                    df['Date'] = pd.to_datetime(df['year_temp'].astype(int).astype(str) + '-12-31')
+                
+                df = df.drop('year_temp', axis=1)
+                
+                return df
+            except Exception as e:
+                st.error(f"Error creating date from year: {e}")
+                return df
+        else:
+            #If no year column exists, create a date column based on the current date
+            st.warning("No date or year column found. Using current date for analysis.")
+            df['Date'] = datetime.now().date()
+            
+    return df
+
+def analyze_data_with_langchain(df):
+    """Uses LangChain to structure the ChatGPT prompt and retrieve recommendations."""
+    prompt_template = PromptTemplate(
+        input_variables=["dataset_preview", "columns"],
+        template=(
+            "Analyze the following dataset with columns: {columns}\n\n"
+            "Dataset preview:\n{dataset_preview}\n\n"
+            "Provide analysis recommendations in JSON format with the following structure:\n"
+            "{{\n"
+            "  \"analysis_types\": [list of appropriate analysis types],\n"
+            "  \"filters\": [column names good for filtering],\n"
+            "  \"value_columns\": [numeric columns good for analysis],\n"
+            "  \"time_periods\": [\"Yearly\", \"Quarterly\", \"Monthly\"],\n"
+            "  \"date_columns\": [column names that contain dates],\n"
+            "  \"recommendations\": \"explanation points\"\n"
+            "}}\n\n"
+            "Make sure to add Cohort, Retention, Segmentation Analysis in the analysis list, focusing on these aspects if they provide meaningful insights given the specific dataset and business questions at hand."
+            "Ensure the response is valid JSON and uses the exact keys specified above."
+            "Put each recommendation on a new line and elaborate the recommendations."
+        )
+    )
+
+    #Format the prompt
+    prompt = prompt_template.format(
+        dataset_preview=df.head().to_string(),
+        columns=df.columns.tolist()
+    )
+
+    try:
+        #Initialize the ChatOpenAI model
+        chat = ChatOpenAI(model="gpt-4", temperature=0)
+
+        #Use SystemMessage and HumanMessage for the input
+        messages = [
+            SystemMessage(content="You are an expert data analyst. Always provide responses in valid JSON format."),
+            HumanMessage(content=prompt)
+        ]
+
+        #Get the response
+        response = chat(messages)
+
+        #Try to parse the JSON response
+        try:
+            return json.loads(response.content)
+        except json.JSONDecodeError:
+            #If JSON parsing fails, try to clean the response
+            cleaned_response = response.content.strip()
+            if cleaned_response.startswith("```json"):
+                cleaned_response = cleaned_response[7:-3]
+            return json.loads(cleaned_response)
+
+    except Exception as e:
+        #Provide a fallback response if the API call fails
+        date_columns = [col for col in df.columns if df[col].dtype == 'datetime64[ns]' \
+                       or (isinstance(df[col].dtype, object) and 'date' in col.lower())]
+        return {
+            "analysis_types": ["Basic Analysis"],
+            "filters": df.select_dtypes(include=['object']).columns.tolist(),
+            "value_columns": df.select_dtypes(include=['int64', 'float64']).columns.tolist(),
+            "time_periods": ["Monthly", "Quarterly", "Yearly"],
+            "date_columns": date_columns,
+            "recommendations": f"Unable to generate detailed recommendations. Using basic analysis options. Error: {str(e)}"
+        }
+#time period 
+def process_time_period(df, date_column, time_period):
+    """Process the dataframe according to the selected time period."""
+    try:
+        #Create a copy to avoid modifying the original
+        df = df.copy()
+        
+        #If the date_column is 'Date' (our created column), ensure it's handled properly
+        if date_column == 'Date' and 'Year' in df.columns:
+            #Use the existing Year column for period creation
+            if time_period == "Yearly":
+                df['period'] = df['Year'].astype(str)
+            elif time_period == "Quarterly":
+                df['period'] = df['Year'].astype(str) + '-Q' + '1'  #Default to Q1 if only year is available
+            elif time_period == "Monthly":
+                df['period'] = df['Year'].astype(str) + '-01'  #Default to January if only year is available
+        else:
+            #Standard date processing
+            df[date_column] = pd.to_datetime(df[date_column])
+            
+            if time_period == "Yearly":
+                df['period'] = df[date_column].dt.year.astype(str)
+            elif time_period == "Quarterly":
+                df['period'] = df[date_column].dt.to_period('Q').astype(str)
+            elif time_period == "Monthly":
+                df['period'] = df[date_column].dt.strftime('%Y-%m')
+
+        return df
+    except Exception as e:
+        st.error(f"Error processing time period: {e}")
+        return df
+
+def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.xlsx"):
+    """Generates a link to download the dataframes as an Excel file with separate sheets."""
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        sum_df.to_excel(writer, index=True, sheet_name="Sum")
+        avg_df.to_excel(writer, index=True, sheet_name="Average")
+        count_df.to_excel(writer, index=True, sheet_name="Count")
+    excel_data = output.getvalue()
+    return excel_data
+
+def generate_recommendations_from_file(file_content):
+    """Send analysis result file content to GPT for generating recommendations."""
+    try:
+        chat = ChatOpenAI(model="gpt-4o", temperature=0)
+        prompt = (
+            """Analyze the provided table data to generate insights focusing on trends, patterns, and business implications. 
+            Use the following examples as references for structuring your analysis, ensuring your output includes relevant metrics, growth percentages, and logical conclusions:
+
+            Examples:
+            "1. CloudPro Services grew from 15.2 million in 2020 to 28.4 million in 2022 before stabilizing at 26.7 million in 2023, demonstrating solid performance despite minor adjustments in demand."
+
+            "2. Two new offerings, StreamFlow and TaskEase, launched in recent years, contributed 1.8 million in 2023, representing initial traction in untapped market segments."
+
+            "3. FlexAssist Solutions showed inconsistent performance, declining from 7.5 million in 2020 to 5.1 million in 2021, but surged by 140 percent to 12.3 million in 2023, highlighting cyclical recovery potential."
+
+            "4. Top-tier services like PrimeSuite accounted for 38 percent of revenue in 2022 but dropped to 32 percent in 2023, indicating diversification and reduced dependency on flagship products."
+
+            "5. Customer loyalty remained a challenge, with a retention rate of 48 percent in 2023, although dollar retention surged to 115 percent, reflecting successful cross-selling strategies."
+
+            "6. On-site Dynamics emerged as the fastest-growing segment with a 275 percent increase from 3.6 million in 2021 to 13.5 million in 2023, showcasing its ability to capitalize on market demand."
+
+            "7. The top 15 percent of clients contributed 88 percent of revenue in 2023, a reduction from 93 percent in 2021, signaling progress in client base diversification."
+
+            "8. The 2019 product cohort saw revenue grow from 18.1 million in 2020 to 25.2 million in 2023, reflecting the ongoing strength of established product lines."
+
+            "9. Customer B experienced 3x growth, with revenue climbing from 12.2 million in 2021 to 37.3 million in 2023, driven by a 400 percent rise in EnterpriseLink Solutions."
+
+            "10. The product portfolio remained strong, retaining all 11 offerings from 2020 to 2023, with the introduction of one new product annually, ensuring measured yet steady innovation."
+
+            - Summarize key trends or patterns (e.g., growth, decline, stability) in numerical terms.
+            - Highlight noteworthy anomalies or outliers (e.g., sudden surges, significant declines).
+            - Explain the business implications of these changes (e.g., market diversification, customer retention challenges).
+            - Make sure insights are actionable, concise, and logically derived from the data."""
+        )
+        messages = [
+            SystemMessage(content="You are a data analysis expert."),
+            HumanMessage(content=prompt + f"\n\n{file_content}")
+        ]
+        response = chat(messages)
+        return response.content
+    except Exception as e:
+        return f"Error generating recommendations: {e}"
+#tab insights
+def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
+    """Generate GPT insights for specific analysis tab."""
+    try:
+        chat = ChatOpenAI(model="gpt-4o", temperature=0)
+        
+        # Create specific prompts based on analysis type
+        prompts = {
+            "value": f"""Analyze the {selected_value} values across different {selected_filter} categories:
+                     1. Identify the top and bottom performers
+                     2. Point out any significant trends or patterns
+                     3. Highlight any notable changes between time periods
+                     Data: {df.to_string()}""",
+                     
+            "total_sum": f"""Analyze the total sum trends for {selected_value}:
+                         1. Describe the overall trend (growing, declining, stable)
+                         2. Calculate and mention the total growth rate
+                         3. Identify peak and lowest periods
+                         Data: {df.to_string()}""",
+                         
+            "percentage": f"""Analyze the percentage distribution of {selected_value}:
+                         1. Identify dominant categories and their share
+                         2. Note any significant shifts in distribution
+                         3. Point out categories with growing or declining share
+                         Data: {df.to_string()}""",
+                         
+            "average": f"""Analyze the average {selected_value} trends:
+                       1. Compare averages across categories
+                       2. Identify any outliers or unusual patterns
+                       3. Comment on the stability of averages over time
+                       Data: {df.to_string()}""",
+                       
+            "growth": f"""Analyze the growth patterns in {selected_value}:
+                      1. Identify highest and lowest growth rates
+                      2. Point out any consistent growth patterns
+                      3. Flag any concerning decline trends
+                      Data: {df.to_string()}""",
+                      
+            "count": f"""Analyze the count distribution of {selected_value}:
+                     1. Identify most and least frequent categories
+                     2. Comment on count distribution changes
+                     3. Point out any unusual patterns
+                     Data: {df.to_string()}""",
+                     
+            "concentration": f"""Analyze the concentration of {selected_value}:
+                            1. Identify highly concentrated areas
+                            2. Comment on concentration changes over time
+                            3. Assess concentration risk if applicable
+                            Data: {df.to_string()}"""
+        }
+        
+        messages = [
+            SystemMessage(content="""You are a data analysis expert. Provide clear, concise insights in bullet points.
+                         Focus on business implications and actionable findings.
+                         Keep the analysis to 3-5 key points."""),
+            HumanMessage(content=prompts[analysis_type.lower()])
+        ]
+        
+        response = chat(messages)
+        return response.content
+    except Exception as e:
+        return f"Error generating insights: {e}"
+#formulas for tabs
+def calculate_growth(df):
+    """Calculate year-over-year percentage growth."""
+    return df.pct_change(axis=1) * 100
+
+def calculate_concentration(df):
+    """Calculate concentration (percentage of total) for each cell."""
+    return df.div(df.sum(axis=0), axis=1) * 100
 
 def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
     """Generates a link to download all analysis dataframes as an Excel file with separate sheets."""
@@ -49,6 +287,78 @@ def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
             df.to_excel(writer, index=True, sheet_name=sheet_name)
     excel_data = output.getvalue()
     return excel_data
+
+#Concentration Analysis
+def create_top_n_concentration(df, n_list=[10, 20, 50, 100]):
+    """Calculate concentration for top N customers."""
+    results = {}
+    df_last_period = df[df.columns[-1]].sort_values(ascending=False)
+    total_sum = df_last_period.sum()
+    
+    for n in n_list:
+        if len(df_last_period) >= n:
+            top_n = df_last_period.head(n)
+            concentration = (top_n.sum() / total_sum) * 100
+            results[f'Top {n}'] = {
+                'count': n,
+                'sum': top_n.sum(),
+                'concentration': concentration,
+                'customers': top_n.index.tolist()
+            }
+    
+    return results
+
+def create_top_n_table(results):
+    """Create a formatted table for top N concentration results."""
+    data = {
+        'Customer Count': [],
+        'Total Value': [],
+        'Concentration (%)': []
+    }
+    
+    for key, value in results.items():
+        data['Customer Count'].append(value['count'])
+        data['Total Value'].append(value['sum'])
+        data['Concentration (%)'].append(round(value['concentration'], 2))
+    
+    return pd.DataFrame(data, index=[k for k in results.keys()])
+
+#charts
+def create_line_chart(df, title):
+    """Create a line chart using Plotly."""
+    fig = px.line(df.transpose(), title=title)
+    fig.update_layout(
+        xaxis_title="Time Period",
+        yaxis_title="Value",
+        legend_title="Categories",
+        height=500
+    )
+    return fig
+
+def create_bar_chart(df, title):
+    """Create a bar chart using Plotly."""
+    fig = px.bar(df.transpose(), title=title, barmode='group')
+    fig.update_layout(
+        xaxis_title="Time Period",
+        yaxis_title="Value",
+        legend_title="Categories",
+        height=500
+    )
+    return fig
+
+def create_area_chart(df, title):
+    """Create a stacked area chart using Plotly."""
+    fig = px.area(df.transpose(), title=title)
+    fig.update_layout(
+        xaxis_title="Time Period",
+        yaxis_title="Value",
+        legend_title="Categories",
+        height=500
+    )
+    return fig
+
+
+
 
 def main():
     #Custom CSS for sidebar styling
