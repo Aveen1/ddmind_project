@@ -159,7 +159,7 @@ def main():
                     selected_subfilter = st.selectbox(
                         "Select Specific Filter",
                         ['Select Topic First'],
-                        disabled=False,
+                        disabled=True,
                         key='subfilter_disabled'
                     )
 
