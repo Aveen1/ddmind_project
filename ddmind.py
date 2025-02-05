@@ -146,22 +146,19 @@ def main():
                 st.write("### Select Variables")
                 selected_analysis = st.selectbox("Analysis Type", ['Select...'] + analysis_types, key='analysis_type')
                 selected_filter = st.selectbox("Topic", ['Select...'] + filters, key='filter')
-
+                
                 if selected_filter and selected_filter != 'Select...':
                     unique_values = sorted(df_cleaned[selected_filter].dropna().unique())
-                    specific_filter_options = ['Select...', 'All'] + list(unique_values)
+                    specific_filter_options = ['All'] + list(unique_values)
                     selected_subfilter = st.selectbox(
                         f"Select {selected_filter}", 
                         options=specific_filter_options,
+                        index=0,
                         key='subfilter'
                     )
                 else:
-                    selected_subfilter = st.selectbox(
-                        "Select Specific Filter",
-                        ['Select Topic First'],
-                        disabled=True,
-                        key='subfilter_disabled'
-                    )
+                    selected_subfilter = st.selectbox("Select Specific Filter",['All'],key='subfilter_disabled'
+                )   
 
             with col2:
                 st.write("###  ")
@@ -180,20 +177,17 @@ def main():
             all_selected = (
                 selected_analysis != 'Select...' and
                 selected_filter != 'Select...' and
-                selected_subfilter not in ['Select...', 'Select Topic First'] and
+                selected_subfilter != 'Select...' and
                 selected_value != 'Select...' and
                 selected_time != 'Select...' and
                 selected_date != 'Select...'
             )
 
-
-
-        if submit_button:
-            if not all_selected:
+            if submit_button and not all_selected:
                 st.error("Please select all options before running the analysis.")
                 return
 
-            # Prepare dataframe for analysis
+        if submit_button:
             if selected_subfilter == 'All':
                 df_analysis = df_cleaned
             else:
@@ -407,8 +401,6 @@ def main():
 
                 except Exception as e:
                     st.error(f"An error occurred during analysis: {e}")
-            else:
-                st.warning("Selected columns are not present in the dataset. Please choose different options.")
 
         if st.session_state.analysis_complete:
             if st.button("Generate Insights"):
