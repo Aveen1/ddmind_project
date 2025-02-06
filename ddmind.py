@@ -158,7 +158,12 @@ def main():
                         key='subfilter'
                     )
                 else:
-                    selected_subfilter = st.selectbox("Select Specific Filter",['All'],key='subfilter_disabled')
+                    selected_subfilter = st.selectbox(
+                        "Select Specific Filter",
+                        ['Select Topic First'],
+                        disabled=False,
+                        key='subfilter_disabled'
+                    )
 
             with col2:
                 st.write("###  ")
