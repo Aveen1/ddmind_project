@@ -37,31 +37,37 @@ def create_date_column(df):
     return df
 
 def process_time_period(df, date_column, time_period):
-    """Process the dataframe according to the selected time period."""
+    """Process the dataframe to capture all time periods."""
     try:
+        #Create a copy to avoid modifying the original
         df = df.copy()
         
-        if date_column == 'Date' and 'Year' in df.columns:
-            if time_period == "Yearly":
-                df['period'] = df['Year'].astype(str)
-            elif time_period == "Quarterly":
-                df['period'] = df['Year'].astype(str) + '-Q' + '1'
-            elif time_period == "Monthly":
-                df['period'] = df['Year'].astype(str) + '-01'
-        else:
-            df[date_column] = pd.to_datetime(df[date_column])
-            
-            if time_period == "Yearly":
-                df['period'] = df[date_column].dt.year.astype(str)
-            elif time_period == "Quarterly":
-                df['period'] = df[date_column].dt.to_period('Q').astype(str)
-            elif time_period == "Monthly":
-                df['period'] = df[date_column].dt.strftime('%Y-%m')
-
+        #Handle different date column scenarios
+        if date_column == 'Date':
+            if 'Year' in df.columns and 'Month' in df.columns:
+                df[date_column] = pd.to_datetime(
+                    dict(year=df['Year'], month=df['Month'], day=1)
+                ) + pd.offsets.MonthEnd(0)
+            elif 'Year' in df.columns:
+                df[date_column] = pd.to_datetime(df['Year'].astype(str) + '-12-31')
+        
+        df[date_column] = pd.to_datetime(df[date_column])
+        
+        if time_period == "Yearly":
+            df['period'] = df[date_column].dt.year.astype(str)
+        
+        elif time_period == "Quarterly":
+            df['period'] = df[date_column].dt.to_period('Q').astype(str)
+        
+        elif time_period == "Monthly":
+            df['period'] = df[date_column].dt.to_period('M').astype(str)
+        
         return df
+    
     except Exception as e:
         st.error(f"Error processing time period: {e}")
         return df
+
     
 def to_excel_download_link(sum_df, avg_df, count_df, filename="analysis_result.xlsx"):
     """Generates a link to download the dataframes as an Excel file with separate sheets."""
