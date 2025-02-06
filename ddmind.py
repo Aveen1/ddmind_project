@@ -18,7 +18,7 @@ from data_processing import (create_date_column, process_time_period, to_excel_d
 from data_analysis import ( calculate_growth, calculate_concentration, create_top_n_concentration, create_top_n_table)
 from chart_generation import (create_line_chart, create_bar_chart, create_area_chart,create_heatmap_chart )
 from ai_insights import ( analyze_data_with_langchain, generate_tab_insights, generate_recommendations_from_file )
-from tabs import (create_analysis_tabs,create_sidebar)
+from tabs import (create_analysis_tabs,create_sidebar, add_total_row)
 
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -192,13 +192,13 @@ def main():
                     )
 
                     analysis_dfs = {
-                        "Value": value_df,
+                        "Value": add_total_row(value_df),
                         "Total Sum": total_sum_df,
-                        "Percentage": pct_df,
-                        "Average": avg_df,
-                        "Growth": growth_df,
-                        "Count": count_df,
-                        "Concentration": concentration_df
+                        "Percentage": add_total_row(pct_df),
+                        "Average": add_total_row(avg_df),
+                        "Growth": add_total_row(growth_df),
+                        "Count": add_total_row(count_df),
+                        "Concentration": add_total_row(concentration_df)
                     }
 
                     excel_data = to_excel_download_link(analysis_dfs)

@@ -66,7 +66,7 @@ def create_sidebar():
 def create_value_tab(value_df, selected_value, selected_filter):
     """Creates and populates the Value Analysis tab"""
     st.write(f"Value Analysis of {selected_value}")
-    st.write(value_df)
+    st.write(add_total_row(value_df))
     st.plotly_chart(create_line_chart(value_df, f"Value Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(value_df, f"Value Distribution of {selected_value}"))
     with st.expander("📊 Value Analysis Insights", expanded=True):
@@ -88,7 +88,8 @@ def create_total_sum_tab(total_sum_df, selected_value, selected_filter):
 def create_percentage_tab(pct_df, selected_value, selected_filter):
     """Creates and populates the Percentage Distribution tab"""
     st.write(f"Percentage Distribution of {selected_value}")
-    st.write(pct_df.round(2))
+    pct_df = (add_total_row(pct_df.round(2)).applymap(lambda x: f"{x}%"))
+    st.write(pct_df)
     st.plotly_chart(create_area_chart(pct_df, f"Percentage Distribution of {selected_value} Over Time"))
     st.plotly_chart(create_bar_chart(pct_df, f"Percentage Distribution by Category"))
     with st.expander("📊 Percentage Analysis Insights", expanded=True):
@@ -99,7 +100,8 @@ def create_percentage_tab(pct_df, selected_value, selected_filter):
 def create_average_tab(avg_df, selected_value, selected_filter):
     """Creates and populates the Average Analysis tab"""
     st.write(f"Average Analysis of {selected_value}")
-    st.write(avg_df.round(2))
+    avg_df = (add_total_row(avg_df.round(2)))
+    st.write(avg_df)
     st.plotly_chart(create_line_chart(avg_df, f"Average Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(avg_df, f"Average Distribution by Category"))
     with st.expander("📊 Average Analysis Insights", expanded=True):
@@ -110,7 +112,7 @@ def create_average_tab(avg_df, selected_value, selected_filter):
 def create_growth_tab(growth_df, selected_value, selected_filter):
     """Creates and populates the Growth Analysis tab"""
     st.write(f"Year-over-Year Growth of {selected_value} (%)")
-    st.write(growth_df.round(2))
+    st.write(add_total_row(growth_df.round(2)).applymap(lambda x: f"{x}%"))
     st.plotly_chart(create_bar_chart(growth_df, f"Growth Rate by Category"))
     fig_heatmap = px.imshow(growth_df,
                            title=f"Growth Rate Heatmap for {selected_value}",
@@ -124,7 +126,7 @@ def create_growth_tab(growth_df, selected_value, selected_filter):
 def create_count_tab(count_df, selected_value, selected_filter):
     """Creates and populates the Count Analysis tab"""
     st.write(f"Count Analysis of {selected_value}")
-    st.write(count_df)
+    st.write(add_total_row(count_df))
     st.plotly_chart(create_line_chart(count_df, f"Count Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(count_df, f"Count Distribution by Category"))
     with st.expander("📊 Count Analysis Insights", expanded=True):
@@ -138,7 +140,7 @@ def create_concentration_tab(concentration_df, value_df, selected_value, selecte
     
     with subtab1:
         st.write(f"Concentration Analysis of {selected_value} (%)")
-        st.write(concentration_df.round(2))
+        st.write(add_total_row(concentration_df.round(2)).applymap(lambda x: f"{x}%"))
         st.plotly_chart(create_area_chart(concentration_df, f"Concentration Over Time"))
         
         if len(concentration_df.columns) > 0:
@@ -243,3 +245,9 @@ def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, coun
     
     with tab7:
         create_concentration_tab(concentration_df, value_df, selected_value, selected_filter)
+
+def add_total_row(df):
+    #Add a total sum to the end of a DataFrame
+    total_row = df.sum().to_frame().T
+    total_row.index = ['Total']
+    return pd.concat([df, total_row])
