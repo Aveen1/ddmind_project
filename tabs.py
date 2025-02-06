@@ -32,6 +32,37 @@ from data_analysis import (
     create_top_n_table
 )
 
+def create_sidebar():
+    """Create and setup the sidebar"""
+    st.markdown("""
+        <style>
+        [data-testid="stSidebar"] {
+            background-color: rgba(10, 8, 41, 255);
+        }    
+        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+            color: white;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    with st.sidebar:
+        st.title("DDMind.ai")
+        st.markdown("### About")
+        st.info("""
+        DDMind is a data analysis tool that helps you:
+        - Upload and analyze Excel/CSV files
+        - Get AI-powered Recommendations
+        - Generate Interactive Visualizations
+        - Export Detailed Analysis Reports
+        """)
+        st.markdown("### Supported File Formats")
+        st.write("- Excel (.xlsx, .xls)")
+        st.write("- CSV (.csv)")
+        st.markdown("### Analysis Settings")
+        st.checkbox("Show Raw Data", value=False)
+        st.checkbox("Enable AI Insights", value=True)
+        st.markdown("---")
+        st.markdown("Made with ❤️ by DDMind")
+
 def create_value_tab(value_df, selected_value, selected_filter):
     """Creates and populates the Value Analysis tab"""
     st.write(f"Value Analysis of {selected_value}")
@@ -188,8 +219,8 @@ def create_top_customers_subtab(value_df):
 def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, count_df, concentration_df, selected_value, selected_filter):
     """Creates and manages all analysis tabs"""
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "Value", "Total Sum", "Percentage", "Average", 
-        "Percentage Growth", "Count", "Concentration Analysis"
+        "Values", "Total Sum", "Percentage", "Average", 
+        "Percentage YoY Growth", "Count", "Concentration Analysis"
     ])
     
     with tab1:

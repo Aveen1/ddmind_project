@@ -14,30 +14,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 #Import custom modules
-from data_processing import (
-    create_date_column, 
-    process_time_period, 
-    to_excel_download_link
-    
-)
-from data_analysis import (
-    calculate_growth, 
-    calculate_concentration, 
-    create_top_n_concentration, 
-    create_top_n_table
-)
-from chart_generation import (
-    create_line_chart, 
-    create_bar_chart, 
-    create_area_chart,
-    create_heatmap_chart
-)
-from ai_insights import (
-    analyze_data_with_langchain,
-    generate_tab_insights,
-    generate_recommendations_from_file
-)
-from tabs import create_analysis_tabs
+from data_processing import (create_date_column, process_time_period, to_excel_download_link )
+from data_analysis import ( calculate_growth, calculate_concentration, create_top_n_concentration, create_top_n_table)
+from chart_generation import (create_line_chart, create_bar_chart, create_area_chart,create_heatmap_chart )
+from ai_insights import ( analyze_data_with_langchain, generate_tab_insights, generate_recommendations_from_file )
+from tabs import (create_analysis_tabs,create_sidebar)
 
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -52,47 +33,13 @@ def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
     return excel_data
 
 def main():
-    #Custom CSS for sidebar styling
-    st.markdown("""
-        <style>
-        [data-testid="stSidebar"] {
-            background-color: rgba(10, 8, 41, 255);
-        }    
-        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
-            color: white;
-        }
-        </style>
-    """, unsafe_allow_html=True)
 
-    #Create sidebar
-    with st.sidebar:
-        st.title("DDMind.ai")
-        
-        st.markdown("### About")
-        st.info("""
-        DDMind is a data analysis tool that helps you:
-        - Upload and analyze Excel/CSV files
-        - Get AI-powered Recommendations
-        - Generate Interactive Visualizations
-        - Export Detailed Analysis Reports
-        """)
-        
-        st.markdown("### Supported File Formats")
-        st.write("- Excel (.xlsx, .xls)")
-        st.write("- CSV (.csv)")
-        
-        st.markdown("### Analysis Settings")
-        show_raw_data = st.checkbox("Show Raw Data", value=False)
-        enable_ai_insights = st.checkbox("Enable AI Insights", value=True)
-        
-        st.markdown("---")
-        st.markdown("Made with ❤️ by DDMind")
-
+    create_sidebar()
     st.title("DDMind")
 
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
-    
+
     if 'last_uploaded_file' not in st.session_state:
         st.session_state.last_uploaded_file = None
     
@@ -103,7 +50,6 @@ def main():
         st.session_state.json_response = None
 
     uploaded_file = st.file_uploader("Upload an Excel file", type=["xlsx", "xls", "csv"])
-
     if uploaded_file is not None and (st.session_state.last_uploaded_file != uploaded_file):
         try:
             st.session_state.last_uploaded_file = uploaded_file
@@ -133,13 +79,13 @@ def main():
     if st.session_state.df_cleaned is not None and st.session_state.json_response is not None:
         df_cleaned = st.session_state.df_cleaned
         json_response = st.session_state.json_response
-
         analysis_types = json_response.get("analysis_types", ["Basic Analysis"])
         filters = json_response.get("filters", df_cleaned.select_dtypes(include=['object']).columns.tolist())
         value_columns = json_response.get("value_columns", df_cleaned.select_dtypes(include=['int64', 'float64']).columns.tolist())
         time_periods = json_response.get("time_periods", ["Monthly", "Quarterly", "Yearly"])
         date_columns = json_response.get("date_columns", [col for col in df_cleaned.columns if 'date' in col.lower()])
 
+        #Display the analysis form
         with st.form(key='analysis_form'):
             col1, col2 = st.columns(2)
 
@@ -161,7 +107,7 @@ def main():
                     selected_subfilter = st.selectbox(
                         "Select Specific Filter",
                         ['Select Topic First'],
-                        disabled=False,
+                        disabled=True,
                         key='subfilter_disabled'
                     )
 
@@ -178,7 +124,6 @@ def main():
 
             submit_button = st.form_submit_button("Run Analysis")
 
-            #Ensure all selections are valid before running the analysis
             all_selected = (
                 selected_analysis != 'Select...' and
                 selected_filter != 'Select...' and
@@ -213,7 +158,6 @@ def main():
                         value_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Sum')
                         avg_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Average')
                         count_df = result_df.pivot(index=selected_filter, columns='Time Period', values='Count')
-                        
                         total_sum = value_df.sum()
                         pct_df = value_df.div(total_sum) * 100
                         growth_df = calculate_growth(value_df)
@@ -224,7 +168,7 @@ def main():
                     else:
                         analysis_result = df_analysis.groupby(selected_filter)[selected_value].agg(['sum', 'mean', 'count'])
                         result_df = analysis_result.reset_index()
-                        
+                    
                         value_df = result_df.set_index(selected_filter)[['sum']]
                         avg_df = result_df.set_index(selected_filter)[['mean']]
                         count_df = result_df.set_index(selected_filter)[['count']]
@@ -234,7 +178,7 @@ def main():
                         total_sum_df = pd.DataFrame(value_df.sum()).T
                         total_sum_df.index = ['Total']
 
-                    # =Create all analysis tabs using the new function
+                    #Create all analysis tabs using the new function
                     create_analysis_tabs(
                         value_df, 
                         total_sum_df, 
