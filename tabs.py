@@ -218,33 +218,121 @@ def create_top_customers_subtab(value_df):
             top_customer_insights = chat(messages)
             st.write(top_customer_insights.content)
 
-def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, count_df, concentration_df, selected_value, selected_filter):
-    """Creates and manages all analysis tabs"""
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "Values", "Total Sum", "Percentage", "Average", 
-        "Percentage YoY Growth", "Count", "Concentration Analysis"
-    ])
+def create_snowball_tab(snowball_df, selected_value, selected_filter):
+    """Creates and populates the Snowball Analysis tab"""
+    st.write(f"Snowball Analysis of {selected_value}")
     
-    with tab1:
-        create_value_tab(value_df, selected_value, selected_filter)
+    # Calculate cumulative growth for each category
+    cumulative_df = snowball_df.cumsum()
     
-    with tab2:
-        create_total_sum_tab(total_sum_df, selected_value, selected_filter)
+    # Display the snowball metrics
+    st.write("Snowball Growth Metrics")
+    st.write(add_total_row(cumulative_df.round(2)))
     
-    with tab3:
-        create_percentage_tab(pct_df, selected_value, selected_filter)
+    # Create waterfall chart showing contribution
+    latest_period = snowball_df.columns[-1]
+    fig_waterfall = go.Figure(go.Waterfall(
+        name="Snowball",
+        orientation="v",
+        measure=["relative"] * len(snowball_df),
+        x=snowball_df.index,
+        y=snowball_df[latest_period],
+        connector={"line": {"color": "rgb(63, 63, 63)"}},
+        text=snowball_df[latest_period].round(2),
+        textposition="outside"
+    ))
+    fig_waterfall.update_layout(title=f"Contribution to Total Growth - {latest_period}")
+    st.plotly_chart(fig_waterfall)
     
-    with tab4:
-        create_average_tab(avg_df, selected_value, selected_filter)
     
-    with tab5:
-        create_growth_tab(growth_df, selected_value, selected_filter)
+    with st.expander("📊 Snowball Analysis Insights", expanded=True):
+        with st.spinner("Generating snowball insights..."):
+            snowball_insights = generate_tab_insights(snowball_df, "snowball", selected_value, selected_filter)
+            st.write(snowball_insights)
+
+
+def create_bridge_tab(value_df, selected_value, selected_filter):
+    """Creates and populates the Bridge Analysis tab"""
+    st.write(f"Bridge Analysis of {selected_value}")
+    st.write("Bridge Analysis Coming Soon")
+
+def create_metrics_tab(value_df, selected_value, selected_filter):
+    """Creates and populates the Metrics Analysis tab"""
+    st.write(f"Metrics Analysis of {selected_value}")
+    st.write("Metrics Analysis Coming Soon")
+
+def create_dollar_retention_tab(value_df, selected_value, selected_filter):
+    """Creates and populates the Dollar Retention Analysis tab"""
+    st.write("Dollar Retention Analysis Coming Soon")
     
-    with tab6:
-        create_count_tab(count_df, selected_value, selected_filter)
+
+
+
+
+
+
+
+def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, count_df, concentration_df, selected_value, selected_time, analysis_type):
+    """Creates and manages all analysis tabs based on analysis type"""
     
-    with tab7:
-        create_concentration_tab(concentration_df, value_df, selected_value, selected_filter)
+    if analysis_type == "Retention Analysis":
+        # Only show retention-related tabs
+        tab1, tab2, tab3 = st.tabs([ "Snowball Analysis", "Dollar Retention Snowball", "Metrics"
+        ])
+        
+        with tab1:
+            create_snowball_tab(value_df, selected_value, selected_time)
+        with tab2:
+            create_dollar_retention_tab(value_df, selected_value, selected_time)
+        with tab3:
+            create_metrics_tab(value_df, selected_value, selected_time)
+    
+    elif analysis_type == "Segmentation Analysis":
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            "Values", "Percentage", "Percentage YoY Growth","Bridge Analysis", "Count", "Concentration Analysis"
+        ])
+        
+        with tab1:
+            create_value_tab(value_df, selected_value, selected_time)
+        with tab2:
+            create_percentage_tab(pct_df, selected_value, selected_time)
+        with tab3:
+            create_growth_tab(growth_df, selected_value, selected_time)
+        with tab4:
+            create_bridge_tab(value_df, selected_value, selected_time)
+        with tab5:
+            create_count_tab(count_df, selected_value, selected_time)
+        with tab6:
+            create_concentration_tab(concentration_df, value_df, selected_value, selected_time)
+
+
+    else:
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+            "Values", "Total Sum", "Percentage", "Average","Percentage YoY Growth","Bridge Analysis", "Count", "Concentration Analysis"
+        ])
+        
+        with tab1:
+            create_value_tab(value_df, selected_value, selected_time)
+        with tab2:
+            create_total_sum_tab(total_sum_df, selected_value, selected_time)
+        with tab3:
+            create_percentage_tab(pct_df, selected_value, selected_time)
+        with tab4:
+            create_average_tab(avg_df, selected_value, selected_time)
+        with tab5:
+            create_growth_tab(growth_df, selected_value, selected_time)
+        with tab6:
+            create_bridge_tab(value_df, selected_value, selected_time)
+        with tab7:
+            create_count_tab(count_df, selected_value, selected_time)     
+        with tab8:
+            create_concentration_tab(concentration_df, value_df, selected_value, selected_time)
+
+
+
+
+
+
 
 def add_total_row(df):
     #Add a total sum to the end of a DataFrame

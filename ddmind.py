@@ -18,7 +18,7 @@ from data_processing import (create_date_column, process_time_period, to_excel_d
 from data_analysis import ( calculate_growth, calculate_concentration, create_top_n_concentration, create_top_n_table)
 from chart_generation import (create_line_chart, create_bar_chart, create_area_chart,create_heatmap_chart )
 from ai_insights import ( analyze_data_with_langchain, generate_tab_insights, generate_recommendations_from_file )
-from tabs import (create_analysis_tabs,create_sidebar, add_total_row)
+from tabs import (create_analysis_tabs,create_sidebar,create_snowball_tab, create_bridge_tab, add_total_row)
 
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -164,6 +164,9 @@ def main():
                         concentration_df = calculate_concentration(value_df)
                         total_sum_df = pd.DataFrame(value_df.sum()).T
                         total_sum_df.index = ['Total']
+                        snowball_df = growth_df.copy()
+                        snowball_df = snowball_df.cumsum()
+
 
                     else:
                         analysis_result = df_analysis.groupby(selected_filter)[selected_value].agg(['sum', 'mean', 'count'])
@@ -177,6 +180,8 @@ def main():
                         concentration_df = calculate_concentration(value_df)
                         total_sum_df = pd.DataFrame(value_df.sum()).T
                         total_sum_df.index = ['Total']
+                        snowball_df = growth_df.copy()
+                        snowball_df = snowball_df.cumsum()
 
                     #Create all analysis tabs using the new function
                     create_analysis_tabs(
@@ -188,18 +193,43 @@ def main():
                         count_df, 
                         concentration_df,
                         selected_value,
-                        selected_filter
+                        selected_filter,
+                        selected_analysis  
                     )
 
-                    analysis_dfs = {
-                        "Value": add_total_row(value_df),
-                        "Total Sum": total_sum_df,
-                        "Percentage": add_total_row(pct_df),
-                        "Average": add_total_row(avg_df),
-                        "Growth": add_total_row(growth_df),
-                        "Count": add_total_row(count_df),
-                        "Concentration": add_total_row(concentration_df)
-                    }
+                    
+                    if selected_analysis == "Retention Analysis":
+                        analysis_dfs = {
+                            "Snowball Analysis": add_total_row(snowball_df),
+                            "Dollar Retention": add_total_row(value_df),  
+                            "Metrics": add_total_row(value_df)  
+                        }
+
+                    elif selected_analysis == "Segmentation Analysis":
+                        analysis_dfs = {
+                            "Value": add_total_row(value_df),
+                            "Percentage": add_total_row(pct_df),
+                            "Growth": add_total_row(growth_df),
+                            "Bridge Analysis": add_total_row(value_df),
+                            "Count": add_total_row(count_df),
+                            "Concentration": add_total_row(concentration_df)
+                        }       
+                    else:
+                        analysis_dfs = {
+                            "Value": add_total_row(value_df),
+                            "Total Sum": total_sum_df,
+                            "Percentage": add_total_row(pct_df),
+                            "Average": add_total_row(avg_df),
+                            "Growth": add_total_row(growth_df),
+                            "Count": add_total_row(count_df),
+                            "Concentration": add_total_row(concentration_df),
+                            "Bridge Analysis": add_total_row(value_df)
+                        }
+
+
+
+
+
 
                     excel_data = to_excel_download_link(analysis_dfs)
 

@@ -66,7 +66,11 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
             "average": f"Analyze average {selected_value} trends, comparing across categories and identifying outliers.",
             "growth": f"Analyze growth patterns in {selected_value}, identifying highest growth rates and patterns.",
             "count": f"Analyze count distribution of {selected_value}, identifying most frequent categories and patterns.",
-            "concentration": f"Analyze concentration of {selected_value}, identifying concentrated areas and changes."
+            "concentration": f"Analyze concentration of {selected_value}, identifying concentrated areas and changes.",
+            "snowball": f"Analyze snowball effect of {selected_value}, identifying exponential growth patterns and implications.",
+            "bridge": f"Analyze bridge between {selected_value}, identifying connections and relationships between categories.",
+            "dollar retention": f"Analyze dollar retention rates for {selected_value}, identifying customer loyalty trends and implications.",
+            "metrics": f"Analyze key metrics for {selected_value}, identifying performance trends and patterns."
         }
         
         messages = [

@@ -1,0 +1,8 @@
+cohort ( values, count, average, lost, decreases, increases, lost retention, remaining percentage)
+
+retention (snowball, dollar retention snowball, metrics)
+
+segmentation (values, percent total, percent yoy growth, bridge analysis, concentration analysis, concentration percent total, count, sum/count)
+
+customer analysis (values, percent total, percent yoy growth, bridge analysis, concentration analysis, concentration percent total, count, sum/count)
+
