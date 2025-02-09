@@ -113,7 +113,12 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
             "snowball": f"Analyze snowball effect of {selected_value}, identifying exponential growth patterns and implications.",
             "bridge": f"Analyze bridge between {selected_value}, identifying connections and relationships between categories.",
             "dollar retention": f"Analyze dollar retention rates for {selected_value}, identifying customer loyalty trends and implications.",
-            "metrics": f"Analyze key metrics for {selected_value}, identifying performance trends and patterns."
+            "metrics": f"Analyze key metrics for {selected_value}, identifying performance trends and patterns.",
+            "values": f"Analyze {selected_value} values across {selected_filter} categories, identifying top performers, trends, and patterns.",
+            "lost": f"Analyze lost revenue for {selected_value}, identifying areas of revenue loss and potential recovery strategies.",
+            "changes": f"Analyze changes in revenue for {selected_value}, identifying areas of growth and decline.",
+            "lost_products": f"Analyze lost products for {selected_value}, identifying discontinued products and potential replacements.",
+            "product_retention": f"Analyze product retention rates for {selected_value}, identifying product lifecycle trends and implications."
         }
         
         prompt = f"{prompts[analysis_type.lower()]} Data: {df_preview}"

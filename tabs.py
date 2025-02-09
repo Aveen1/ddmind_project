@@ -175,7 +175,7 @@ def create_top_customers_subtab(value_df):
     top_n_results = create_top_n_concentration(value_df)
     summary_df = create_top_n_table(top_n_results)
     
-    st.write("#### Summary of Top Customer Concentration")
+    st.write("### Summary of Top Customer Concentration")
     st.write(summary_df)
     
     fig_top_n = px.bar(
@@ -187,7 +187,7 @@ def create_top_customers_subtab(value_df):
     fig_top_n.update_layout(height=400)
     st.plotly_chart(fig_top_n)
     
-    st.write("#### Detailed Customer Lists")
+    st.write("### Detailed Customer Lists")
     for group, data in top_n_results.items():
         with st.expander(f"{group} Details"):
             st.write(f"Total Value: {data['sum']:,.2f}")
@@ -266,17 +266,252 @@ def create_dollar_retention_tab(value_df, selected_value, selected_filter):
     st.write("Dollar Retention Analysis Coming Soon")
     
 
+def create_values_cohort_tab(value_df, selected_value, selected_time):
+    """Analyzes absolute values by cohort"""
+    st.write("### Value Analysis by Cohort")   
+    #Display raw values
+    st.write("### Raw Values by Cohort")
+    st.write(value_df)  
+    #Create heatmap of values
+    fig = px.imshow(
+        value_df,
+        title="Value Heatmap by Cohort",
+        labels=dict(x="Time Period", y="Customer", color="Value"),
+        color_continuous_scale="Viridis"
+    )
+    st.plotly_chart(fig)
+    #Calculate and display summary statistics
+    summary_stats = pd.DataFrame({
+        'Total Value': value_df.sum(),
+        'Average Value': value_df.mean(),
+        'Median Value': value_df.median(),
+        'Active Customers': (value_df > 0).sum()
+    })
+    st.write("### Summary Statistics by Period")
+    st.write(summary_stats)
 
+def create_count_cohort_tab(value_df, selected_value, selected_time):
+    """Analyzes customer counts by cohort"""
+    st.write("### Customer Count Analysis by Cohort")
+    
+    #Calculate active customer counts
+    active_counts = (value_df > 0).sum()
+    total_customers = len(value_df)
+    
+    #Create summary DataFrame
+    count_df = pd.DataFrame({
+        'Active Customers': active_counts,
+        'Inactive Customers': total_customers - active_counts,
+        'Total Customers': total_customers,
+        'Active Rate (%)': (active_counts / total_customers * 100).round(2)
+    })
+    
+    st.write("### Customer Counts by Period")
+    st.write(count_df)
+    
+    #Create line chart
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=count_df.index,
+        y=count_df['Active Rate (%)'],
+        mode='lines+markers',
+        name='Active Rate'
+    ))
+    fig.update_layout(
+        title='Customer Activity Rate Over Time',
+        xaxis_title='Time Period',
+        yaxis_title='Active Rate (%)',
+        yaxis_range=[0, 100]
+    )
+    st.plotly_chart(fig)
 
+def create_average_cohort_tab(value_df, selected_value, selected_time):
+    """Analyzes average values by cohort"""
+    st.write("### Average Value Analysis by Cohort")
+    
+    #Calculate average values (excluding zeros)
+    avg_values = value_df.replace(0, np.nan).mean()
+    median_values = value_df.replace(0, np.nan).median()
+    
+    #Create summary DataFrame
+    avg_df = pd.DataFrame({
+        'Average Value': avg_values.round(2),
+        'Median Value': median_values.round(2)
+    })
+    
+    st.write("### Average Values by Period")
+    st.write(avg_df)
+    
+    #Create line chart
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=avg_df.index,
+        y=avg_df['Average Value'],
+        mode='lines+markers',
+        name='Average Value'
+    ))
+    fig.add_trace(go.Scatter(
+        x=avg_df.index,
+        y=avg_df['Median Value'],
+        mode='lines+markers',
+        name='Median Value'
+    ))
+    fig.update_layout(
+        title='Value Metrics Over Time',
+        xaxis_title='Time Period',
+        yaxis_title='Value'
+    )
+    st.plotly_chart(fig)
 
+def create_dollar_lost_cohort_tab(value_df, selected_value, selected_time):
+    """Analyzes dollar value lost by cohort"""
+    st.write("### Dollar Value Lost Analysis by Cohort")
+    
+    #Calculate period-over-period changes
+    changes = value_df.diff(axis=1)
+    
+    #Calculate total dollar value lost (negative changes only)
+    dollar_lost = changes.clip(upper=0).abs()
+    
+    st.write("### Dollar Value Lost by Period")
+    st.write(dollar_lost.sum().to_frame('Total Dollar Lost'))
+    
+    #Create heatmap
+    fig = px.imshow(
+        dollar_lost,
+        title="Dollar Value Lost Heatmap",
+        labels=dict(x="Time Period", y="Customer", color="Lost Value"),
+        color_continuous_scale="Reds"
+    )
+    st.plotly_chart(fig)
 
+def create_dollar_changes_cohort_tab(value_df, selected_value, selected_time):
+    """Analyzes dollar value changes (increases and decreases) by cohort"""
+    st.write("### Dollar Value Changes Analysis by Cohort")
+    
+    #Calculate period-over-period changes
+    changes = value_df.diff(axis=1)
+    
+    #Separate increases and decreases
+    increases = changes.clip(lower=0)
+    decreases = changes.clip(upper=0).abs()
+    
+    #Create summary DataFrames
+    increase_summary = pd.DataFrame({
+        'Total Increases': increases.sum(),
+        'Average Increase': increases[increases > 0].mean(),
+        'Customers with Increases': (increases > 0).sum()
+    })
+    
+    decrease_summary = pd.DataFrame({
+        'Total Decreases': decreases.sum(),
+        'Average Decrease': decreases[decreases > 0].mean(),
+        'Customers with Decreases': (decreases > 0).sum()
+    })
+    
+    st.write("### Value Increases by Period")
+    st.write(increase_summary)
+    st.write("### Value Decreases by Period")
+    st.write(decrease_summary)
+    
+    #Create combined visualization
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=increase_summary.index,
+        y=increase_summary['Total Increases'],
+        name='Increases',
+        marker_color='green'
+    ))
+    fig.add_trace(go.Bar(
+        x=decrease_summary.index,
+        y=-decrease_summary['Total Decreases'],
+        name='Decreases',
+        marker_color='red'
+    ))
+    fig.update_layout(
+        title='Dollar Value Changes Over Time',
+        barmode='relative',
+        xaxis_title='Time Period',
+        yaxis_title='Value Change'
+    )
+    st.plotly_chart(fig)
+
+def create_lost_product_cohort_tab(value_df, selected_value, selected_time):
+    """Analyzes lost products/services by cohort"""
+    st.write("### Lost Product Analysis by Cohort")
+    
+    #Calculate products/services lost (where value becomes zero)
+    previous_active = value_df.shift(1, axis=1) > 0
+    current_inactive = value_df == 0
+    lost_products = (previous_active & current_inactive)
+    
+    lost_counts = lost_products.sum()
+    active_counts = (value_df > 0).sum()
+    
+    #Create summary DataFrame
+    summary_df = pd.DataFrame({
+        'Lost Products': lost_counts,
+        'Active Products': active_counts,
+        'Loss Rate (%)': (lost_counts / active_counts.shift(1) * 100).round(2)
+    })
+    
+    st.write("### Lost Products Summary")
+    st.write(summary_df)
+    
+    #Create visualization
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=summary_df.index,
+        y=summary_df['Loss Rate (%)'],
+        mode='lines+markers',
+        name='Loss Rate'
+    ))
+    fig.update_layout(
+        title='Product Loss Rate Over Time',
+        xaxis_title='Time Period',
+        yaxis_title='Loss Rate (%)',
+        yaxis_range=[0, 100]
+    )
+    st.plotly_chart(fig)
+
+def create_product_retention_cohort_tab(value_df, selected_value, selected_time):
+    """Analyzes product/service retention by cohort"""
+    st.write("### Product Retention Analysis by Cohort")
+    
+    #Calculate retention (products/services that remain active)
+    initial_products = value_df.iloc[:, 0] > 0
+    retention_matrix = pd.DataFrame(index=value_df.columns)
+    
+    for period in value_df.columns:
+        current_active = value_df[period] > 0
+        retention_rate = (current_active & initial_products).sum() / initial_products.sum() * 100
+        retention_matrix.loc[period, 'Retention Rate (%)'] = retention_rate
+    
+    st.write("### Product Retention Rates")
+    st.write(retention_matrix)
+    
+    #Create visualization
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=retention_matrix.index,
+        y=retention_matrix['Retention Rate (%)'],
+        mode='lines+markers',
+        name='Retention Rate'
+    ))
+    fig.update_layout(
+        title='Product Retention Rate Over Time',
+        xaxis_title='Time Period',
+        yaxis_title='Retention Rate (%)',
+        yaxis_range=[0, 100]
+    )
+    st.plotly_chart(fig)
 
 
 def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, count_df, concentration_df, selected_value, selected_time, analysis_type):
     """Creates and manages all analysis tabs based on analysis type"""
     
     if analysis_type == "Retention Analysis":
-        # Only show retention-related tabs
+        #Only show retention-related tabs
         tab1, tab2, tab3 = st.tabs([ "Snowball Analysis", "Dollar Retention Snowball", "Metrics"
         ])
         
@@ -303,6 +538,28 @@ def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, coun
         with tab5:
             create_count_tab(count_df, selected_value, selected_time)
         with tab6:
+            create_concentration_tab(concentration_df, value_df, selected_value, selected_time)
+
+    elif analysis_type == "Cohort Analysis":
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+            "Values", "Count", "Average", "$ Lost", "$ Changes", "Lost Products", "Product Retention", "Concentration Analysis"
+        ])
+        
+        with tab1:
+            create_values_cohort_tab(value_df, selected_value, selected_time)
+        with tab2:
+            create_count_cohort_tab(value_df, selected_value, selected_time)
+        with tab3:
+            create_average_cohort_tab(value_df, selected_value, selected_time)
+        with tab4:
+            create_dollar_lost_cohort_tab(value_df, selected_value, selected_time)
+        with tab5:
+            create_dollar_changes_cohort_tab(value_df, selected_value, selected_time)
+        with tab6:
+            create_lost_product_cohort_tab(value_df, selected_value, selected_time)
+        with tab7:
+            create_product_retention_cohort_tab(value_df, selected_value, selected_time)
+        with tab8:
             create_concentration_tab(concentration_df, value_df, selected_value, selected_time)
 
 
