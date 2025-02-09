@@ -12,6 +12,7 @@ from datetime import datetime
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import tiktoken
 
 #Import custom modules
 from data_processing import (create_date_column, process_time_period, to_excel_download_link )
@@ -23,6 +24,12 @@ from tabs import (create_analysis_tabs,create_sidebar,create_snowball_tab, creat
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+def num_tokens_from_string(string: str) -> int:
+    """Returns the number of tokens in a text string."""
+    encoding = tiktoken.get_encoding('cl100k_base')
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
+
 def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
     """Generates a link to download all analysis dataframes as an Excel file with separate sheets."""
     output = BytesIO()
@@ -31,6 +38,7 @@ def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
             df.to_excel(writer, index=True, sheet_name=sheet_name)
     excel_data = output.getvalue()
     return excel_data
+
 
 def main():
 
@@ -63,7 +71,6 @@ def main():
             
             st.write("### Extracted Data:")
             st.write(df)
-
             st.session_state.df_cleaned = df.drop_duplicates().fillna(method='ffill').fillna(method='bfill')
 
             with st.spinner("Analyzing data..."):
@@ -250,8 +257,10 @@ def main():
 
                     with st.spinner("Generating Insights..."):
                         recommendations = generate_recommendations_from_file(full_summary)
+                        formatted_recommendations = recommendations.replace('$', '\$')
+
                         st.write("### DDMind Insights:")
-                        st.write(recommendations)
+                        st.write(formatted_recommendations)
 
                 except Exception as e:
                     st.error(f"Recommendation generation error: {e}")

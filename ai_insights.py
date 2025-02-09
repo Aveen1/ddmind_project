@@ -3,9 +3,34 @@ from langchain.schema import SystemMessage, HumanMessage
 import json
 import streamlit as st
 import pandas as pd
+import tiktoken
+
+def num_tokens_from_string(string: str) -> int:
+    """Returns the number of tokens in a text string."""
+    encoding = tiktoken.get_encoding('cl100k_base')
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
+
+def truncate_dataframe(df, max_tokens=10000):
+    """Truncate dataframe preview to fit within token limit."""
+    preview = df.head().to_string()
+    tokens = num_tokens_from_string(preview)
+    
+    while tokens > max_tokens and len(df) > 1:
+        df = df.iloc[:len(df)//2]
+        preview = df.head().to_string()
+        tokens = num_tokens_from_string(preview)
+    
+    return preview
 
 def analyze_data_with_langchain(df):
     """Uses LangChain to structure the ChatGPT prompt and retrieve recommendations."""
+    
+    MAX_TOTAL_TOKENS = 100000000 
+    MAX_DATASET_TOKENS = 10000
+    
+    dataset_preview = truncate_dataframe(df, MAX_DATASET_TOKENS)
+    
     prompt_template = (
         "Analyze the following dataset with columns: {columns}\n\n"
         "Dataset preview:\n{dataset_preview}\n\n"
@@ -23,14 +48,29 @@ def analyze_data_with_langchain(df):
     )
 
     prompt = prompt_template.format(
-        dataset_preview=df.head().to_string(),
+        dataset_preview=dataset_preview,
         columns=df.columns.tolist()
     )
+
+
+    system_message = "You are an expert data analyst. Always provide responses in valid JSON format."
+    total_tokens = num_tokens_from_string(system_message) + num_tokens_from_string(prompt)
+    
+    if total_tokens > MAX_TOTAL_TOKENS:
+        st.warning(f"Input size exceeds token limit ({total_tokens}/{MAX_TOTAL_TOKENS})")
+        return {
+            "analysis_types": ["Basic Analysis"],
+            "filters": [],
+            "value_columns": [],
+            "time_periods": ["Monthly", "Quarterly", "Yearly"],
+            "date_columns": [],
+            "recommendations": "Dataset too large for detailed analysis. Please reduce the input size."
+        }
 
     try:
         chat = ChatOpenAI(model="gpt-4", temperature=0)
         messages = [
-            SystemMessage(content="You are an expert data analyst. Always provide responses in valid JSON format."),
+            SystemMessage(content=system_message),
             HumanMessage(content=prompt)
         ]
         response = chat(messages)
@@ -57,6 +97,9 @@ def analyze_data_with_langchain(df):
 def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
     """Generate GPT insights for specific analysis tab."""
     try:
+        MAX_TOKENS = 100000000
+        df_preview = truncate_dataframe(df, MAX_TOKENS // 2) 
+        
         chat = ChatOpenAI(model="gpt-4o", temperature=0)
         
         prompts = {
@@ -73,9 +116,17 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
             "metrics": f"Analyze key metrics for {selected_value}, identifying performance trends and patterns."
         }
         
+        prompt = f"{prompts[analysis_type.lower()]} Data: {df_preview}"
+        
+        system_message = "You are a data analysis expert. Provide clear, concise insights in bullet points."
+        total_tokens = num_tokens_from_string(system_message) + num_tokens_from_string(prompt)
+        
+        if total_tokens > MAX_TOKENS:
+            return "Dataset too large for detailed analysis. Please reduce the input size or analyze a smaller subset of the data."
+        
         messages = [
-            SystemMessage(content="You are a data analysis expert. Provide clear, concise insights in bullet points."),
-            HumanMessage(content=f"{prompts[analysis_type.lower()]} Data: {df.to_string()}")
+            SystemMessage(content=system_message),
+            HumanMessage(content=prompt)
         ]
         
         response = chat(messages)
@@ -86,6 +137,13 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
 def generate_recommendations_from_file(file_content):
     """Send analysis result file content to GPT for generating recommendations."""
     try:
+        MAX_TOKENS = 100000000        
+        content_tokens = num_tokens_from_string(file_content)
+        if content_tokens > MAX_TOKENS // 2:
+            encoding = tiktoken.get_encoding('cl100k_base')
+            decoded_tokens = encoding.decode(encoding.encode(file_content)[:MAX_TOKENS // 2])
+            file_content = decoded_tokens
+        
         chat = ChatOpenAI(model="gpt-4o", temperature=0)
         prompt = (
             """Analyze the provided table data to generate insights focusing on trends, patterns, and business implications. 
@@ -117,8 +175,15 @@ def generate_recommendations_from_file(file_content):
             - Explain the business implications of these changes (e.g., market diversification, customer retention challenges).
             - Make sure insights are actionable, concise, and logically derived from the data."""
         )
+        
+        system_message = "You are an expert data analysis expert."
+        total_tokens = num_tokens_from_string(system_message) + num_tokens_from_string(prompt) + num_tokens_from_string(file_content)
+        
+        if total_tokens > MAX_TOKENS:
+            return "Input size exceeds token limit. Please reduce the file content size."
+            
         messages = [
-            SystemMessage(content="You are a data analysis expert."),
+            SystemMessage(content=system_message),
             HumanMessage(content=prompt + f"\n\n{file_content}")
         ]
         response = chat(messages)
