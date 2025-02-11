@@ -222,11 +222,11 @@ def create_snowball_tab(value_df, selected_value, selected_time):
     """Creates and populates the Snowball Analysis tab with customer movement metrics"""
     st.write(f"Snowball Analysis of {selected_value}")
     
-    # alculate customer movement metrics for each period
+    #Calculate customer movement metrics for each period
     periods = sorted(value_df.columns)
     metrics_df = pd.DataFrame(columns=['Metric'] + periods)
     
-    # Initialize metrics tracking
+    #Initialize metrics tracking
     metrics = {
         'Beginning Customers Balance': [],
         'New Customers': [],
@@ -236,18 +236,18 @@ def create_snowball_tab(value_df, selected_value, selected_time):
     }
     
     for i, period in enumerate(periods):
-        # Get active customers (value > 0) for current period
+        #Get active customers (value > 0) for current period
         current_active = set(value_df[value_df[period] > 0].index)
         
         if i == 0:
-            # First period
+            #First period
             metrics['Beginning Customers Balance'].append(len(current_active))
             metrics['New Customers'].append(0)
             metrics['Lost Customers'].append(0)
             metrics['Stop/Start'].append(0)
             metrics['Ending Customers Balance'].append(len(current_active))
         else:
-            # Get previous period's active customers
+            #Get previous period's active customers
             prev_period = periods[i-1]
             prev_active = set(value_df[value_df[prev_period] > 0].index)
             
@@ -256,7 +256,7 @@ def create_snowball_tab(value_df, selected_value, selected_time):
             new_customers = len(current_active - prev_active)
             lost_customers = len(prev_active - current_active)
             
-            # Calculate stop/start (customers who were inactive in previous period but active now)
+            #Calculate stop/start (customers who were inactive in previous period but active now)
             if i > 1:
                 two_periods_ago = periods[i-2]
                 two_periods_ago_active = set(value_df[value_df[two_periods_ago] > 0].index)
@@ -266,14 +266,14 @@ def create_snowball_tab(value_df, selected_value, selected_time):
             
             ending_balance = beginning_balance + new_customers - lost_customers + stop_start
             
-            # Store metrics
+            #Store metrics
             metrics['Beginning Customers Balance'].append(beginning_balance)
             metrics['New Customers'].append(new_customers)
             metrics['Lost Customers'].append(lost_customers)
             metrics['Stop/Start'].append(stop_start)
             metrics['Ending Customers Balance'].append(ending_balance)
     
-    # Create DataFrame from metrics
+    #Create DataFrame from metrics
     for metric_name, values in metrics.items():
         row_data = {'Metric': metric_name}
         for i, period in enumerate(periods):
@@ -284,7 +284,7 @@ def create_snowball_tab(value_df, selected_value, selected_time):
     st.write("### Customer Movement Analysis")
     st.write(metrics_df.set_index('Metric'))
     
-    # Create waterfall chart showing customer movement for the latest period
+    #Create waterfall chart showing customer movement for the latest period
     latest_period = periods[-1]
     prev_period = periods[-2] if len(periods) > 1 else None
     
