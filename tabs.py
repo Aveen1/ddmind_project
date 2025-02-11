@@ -218,36 +218,112 @@ def create_top_customers_subtab(value_df):
             top_customer_insights = chat(messages)
             st.write(top_customer_insights.content)
 
-def create_snowball_tab(snowball_df, selected_value, selected_filter):
-    """Creates and populates the Snowball Analysis tab"""
+def create_snowball_tab(value_df, selected_value, selected_time):
+    """Creates and populates the Snowball Analysis tab with customer movement metrics"""
     st.write(f"Snowball Analysis of {selected_value}")
     
-    # Calculate cumulative growth for each category
-    cumulative_df = snowball_df.cumsum()
+    # alculate customer movement metrics for each period
+    periods = sorted(value_df.columns)
+    metrics_df = pd.DataFrame(columns=['Metric'] + periods)
     
-    # Display the snowball metrics
-    st.write("Snowball Growth Metrics")
-    st.write(add_total_row(cumulative_df.round(2)))
+    # Initialize metrics tracking
+    metrics = {
+        'Beginning Customers Balance': [],
+        'New Customers': [],
+        'Lost Customers': [],
+        'Stop/Start': [],
+        'Ending Customers Balance': []
+    }
     
-    # Create waterfall chart showing contribution
-    latest_period = snowball_df.columns[-1]
-    fig_waterfall = go.Figure(go.Waterfall(
-        name="Snowball",
-        orientation="v",
-        measure=["relative"] * len(snowball_df),
-        x=snowball_df.index,
-        y=snowball_df[latest_period],
-        connector={"line": {"color": "rgb(63, 63, 63)"}},
-        text=snowball_df[latest_period].round(2),
-        textposition="outside"
-    ))
-    fig_waterfall.update_layout(title=f"Contribution to Total Growth - {latest_period}")
-    st.plotly_chart(fig_waterfall)
+    for i, period in enumerate(periods):
+        # Get active customers (value > 0) for current period
+        current_active = set(value_df[value_df[period] > 0].index)
+        
+        if i == 0:
+            # First period
+            metrics['Beginning Customers Balance'].append(len(current_active))
+            metrics['New Customers'].append(0)
+            metrics['Lost Customers'].append(0)
+            metrics['Stop/Start'].append(0)
+            metrics['Ending Customers Balance'].append(len(current_active))
+        else:
+            # Get previous period's active customers
+            prev_period = periods[i-1]
+            prev_active = set(value_df[value_df[prev_period] > 0].index)
+            
+            # Calculate metrics
+            beginning_balance = len(prev_active)
+            new_customers = len(current_active - prev_active)
+            lost_customers = len(prev_active - current_active)
+            
+            # Calculate stop/start (customers who were inactive in previous period but active now)
+            if i > 1:
+                two_periods_ago = periods[i-2]
+                two_periods_ago_active = set(value_df[value_df[two_periods_ago] > 0].index)
+                stop_start = len((prev_active - current_active) & two_periods_ago_active)
+            else:
+                stop_start = 0
+            
+            ending_balance = beginning_balance + new_customers - lost_customers + stop_start
+            
+            # Store metrics
+            metrics['Beginning Customers Balance'].append(beginning_balance)
+            metrics['New Customers'].append(new_customers)
+            metrics['Lost Customers'].append(lost_customers)
+            metrics['Stop/Start'].append(stop_start)
+            metrics['Ending Customers Balance'].append(ending_balance)
     
+    # Create DataFrame from metrics
+    for metric_name, values in metrics.items():
+        row_data = {'Metric': metric_name}
+        for i, period in enumerate(periods):
+            row_data[period] = values[i]
+        metrics_df = pd.concat([metrics_df, pd.DataFrame([row_data])], ignore_index=True)
+    
+    # Display the metrics table
+    st.write("### Customer Movement Analysis")
+    st.write(metrics_df.set_index('Metric'))
+    
+    # Create waterfall chart showing customer movement for the latest period
+    latest_period = periods[-1]
+    prev_period = periods[-2] if len(periods) > 1 else None
+    
+    if prev_period:
+        waterfall_data = {
+            'Measure': ['Beginning Balance', 'New Customers', 'Lost Customers', 'Stop/Start', 'Ending Balance'],
+            'Value': [
+                metrics['Beginning Customers Balance'][-1],
+                metrics['New Customers'][-1],
+                -metrics['Lost Customers'][-1],
+                metrics['Stop/Start'][-1],
+                metrics['Ending Customers Balance'][-1]
+            ]
+        }
+        
+        fig = go.Figure(go.Waterfall(
+            name="Customer Movement",
+            orientation="v",
+            measure=["absolute", "relative", "relative", "relative", "total"],
+            x=waterfall_data['Measure'],
+            y=waterfall_data['Value'],
+            connector={"line": {"color": "rgb(63, 63, 63)"}},
+            decreasing={"marker": {"color": "red"}},
+            increasing={"marker": {"color": "green"}},
+            totals={"marker": {"color": "blue"}},
+            text=waterfall_data['Value'],
+            textposition="outside"
+        ))
+        
+        fig.update_layout(
+            title=f"Customer Movement Analysis - {latest_period}",
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig)
     
     with st.expander("📊 Snowball Analysis Insights", expanded=True):
         with st.spinner("Generating snowball insights..."):
-            snowball_insights = generate_tab_insights(snowball_df, "snowball", selected_value, selected_filter)
+            snowball_insights = generate_tab_insights(metrics_df, "snowball", selected_value, selected_time)
             st.write(snowball_insights)
 
 

@@ -173,7 +173,7 @@ def main():
                         total_sum_df.index = ['Total']
                         snowball_df = growth_df.copy()
                         snowball_df = snowball_df.cumsum()
-
+                        
 
                     else:
                         analysis_result = df_analysis.groupby(selected_filter)[selected_value].agg(['sum', 'mean', 'count'])
@@ -207,7 +207,7 @@ def main():
                     
                     if selected_analysis == "Retention Analysis":
                         analysis_dfs = {
-                            "Snowball Analysis": add_total_row(snowball_df),
+                            "Snowball Analysis": add_total_row(value_df),
                             "Dollar Retention": add_total_row(value_df),  
                             "Metrics": add_total_row(value_df)  
                         }
