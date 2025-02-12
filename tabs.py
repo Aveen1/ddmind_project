@@ -326,6 +326,133 @@ def create_snowball_tab(value_df, selected_value, selected_time):
             snowball_insights = generate_tab_insights(metrics_df, "snowball", selected_value, selected_time)
             st.write(snowball_insights)
 
+def create_dollar_retention_tab(value_df, selected_value, selected_time):
+    """Creates and populates the Dollar Retention Analysis tab with revenue movement metrics"""
+    st.write(f"Dollar Retention Analysis of {selected_value}")
+    
+    #Calculate revenue movement metrics for each period
+    periods = sorted(value_df.columns)
+    metrics_df = pd.DataFrame(columns=['Metric'] + periods)
+    
+    #Initialize metrics tracking
+    metrics = {
+        'Beginning Balance': [],
+        'New Revenue': [],
+        'Revenue Increases': [],
+        'Lost Revenue': [],
+        'Decreases': [],
+        'Ending Balance': []
+    }
+    
+    for i, period in enumerate(periods):
+        if i == 0:
+            # First period
+            current_values = value_df[period]
+            metrics['Beginning Balance'].append(current_values.sum())
+            metrics['New Revenue'].append(0)
+            metrics['Revenue Increases'].append(0)
+            metrics['Lost Revenue'].append(0)
+            metrics['Decreases'].append(0)
+            metrics['Ending Balance'].append(current_values.sum())
+        else:
+            prev_period = periods[i-1]
+            current_values = value_df[period]
+            prev_values = value_df[prev_period]
+            
+            #Calculate beginning balance
+            beginning_balance = prev_values.sum()
+            
+            #Calculate new revenue (from customers with 0 revenue in previous period)
+            new_revenue = current_values[(prev_values == 0) & (current_values > 0)].sum()
+            
+            #Calculate revenue increases (from existing customers)
+            increases = current_values[current_values > prev_values]
+            revenue_increases = (increases - prev_values[increases.index]).sum()
+            
+            #Calculate lost revenue (from customers who went to 0)
+            lost_revenue = prev_values[(current_values == 0) & (prev_values > 0)].sum()
+            
+            #Calculate decreases (from existing customers who decreased but didn't go to 0)
+            decreases = current_values[current_values < prev_values]
+            revenue_decreases = (prev_values[decreases.index] - decreases).sum()
+            
+            #Calculate ending balance
+            ending_balance = (beginning_balance + new_revenue + revenue_increases - 
+                            lost_revenue - revenue_decreases)
+            
+            #Store metrics
+            metrics['Beginning Balance'].append(beginning_balance)
+            metrics['New Revenue'].append(new_revenue)
+            metrics['Revenue Increases'].append(revenue_increases)
+            metrics['Lost Revenue'].append(lost_revenue)
+            metrics['Decreases'].append(-revenue_decreases)  #Store as negative value
+            metrics['Ending Balance'].append(ending_balance)
+    
+    #Create DataFrame from metrics
+    for metric_name, values in metrics.items():
+        row_data = {'Metric': metric_name}
+        for i, period in enumerate(periods):
+            row_data[period] = values[i]
+        metrics_df = pd.concat([metrics_df, pd.DataFrame([row_data])], ignore_index=True)
+    
+    #Format the values
+    for col in periods:
+        metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:,.2f}")
+    
+    #Display the metrics table
+    st.write("### Dollar Value Movement Analysis")
+    st.write(metrics_df.set_index('Metric'))
+    
+    #Create waterfall chart showing dollar movement for the latest period
+    latest_period = periods[-1]
+    prev_period = periods[-2] if len(periods) > 1 else None
+    
+    if prev_period:
+        waterfall_data = {
+            'Measure': ['Beginning Balance', 'New Revenue', 'Revenue Increases', 
+                       'Lost Revenue', 'Decreases', 'Ending Balance'],
+            'Value': [
+                float(metrics_df.iloc[0][latest_period].replace(',', '')),
+                float(metrics_df.iloc[1][latest_period].replace(',', '')),
+                float(metrics_df.iloc[2][latest_period].replace(',', '')),
+                -float(metrics_df.iloc[3][latest_period].replace(',', '')),
+                float(metrics_df.iloc[4][latest_period].replace(',', '')),  
+                float(metrics_df.iloc[5][latest_period].replace(',', ''))
+            ]
+        }
+        
+        fig = go.Figure(go.Waterfall(
+            name="Dollar Movement",
+            orientation="v",
+            measure=["absolute", "relative", "relative", "relative", "relative", "total"],
+            x=waterfall_data['Measure'],
+            y=waterfall_data['Value'],
+            connector={"line": {"color": "rgb(63, 63, 63)"}},
+            decreasing={"marker": {"color": "red"}},
+            increasing={"marker": {"color": "green"}},
+            totals={"marker": {"color": "blue"}},
+            text=[f"${x:,.2f}" for x in waterfall_data['Value']],
+            textposition="outside"
+        ))
+        
+        fig.update_layout(
+            title=f"Dollar Value Movement Analysis - {latest_period}",
+            showlegend=False,
+            height=600,
+            yaxis_title="Dollar Value"
+        )
+        
+        st.plotly_chart(fig)
+    
+    with st.expander("📊 Dollar Retention Analysis Insights", expanded=True):
+        with st.spinner("Generating dollar retention insights..."):
+            metrics_insights = generate_tab_insights(metrics_df, "dollar_retention", selected_value, selected_time)
+            st.write(metrics_insights)
+
+
+
+
+
 
 def create_bridge_tab(value_df, selected_value, selected_filter):
     """Creates and populates the Bridge Analysis tab"""
@@ -336,11 +463,6 @@ def create_metrics_tab(value_df, selected_value, selected_filter):
     """Creates and populates the Metrics Analysis tab"""
     st.write(f"Metrics Analysis of {selected_value}")
     st.write("Metrics Analysis Coming Soon")
-
-def create_dollar_retention_tab(value_df, selected_value, selected_filter):
-    """Creates and populates the Dollar Retention Analysis tab"""
-    st.write("Dollar Retention Analysis Coming Soon")
-    
 
 def create_values_cohort_tab(value_df, selected_value, selected_time):
     """Analyzes absolute values by cohort"""
