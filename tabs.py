@@ -281,7 +281,7 @@ def create_snowball_tab(value_df, selected_value, selected_time):
         metrics_df = pd.concat([metrics_df, pd.DataFrame([row_data])], ignore_index=True)
     
     # Display the metrics table
-    st.write("### Customer Movement Analysis")
+    st.write("##### Customer Movement Analysis")
     st.write(metrics_df.set_index('Metric'))
     
     #Create waterfall chart showing customer movement for the latest period
@@ -346,7 +346,7 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
     
     for i, period in enumerate(periods):
         if i == 0:
-            # First period
+            #First period
             current_values = value_df[period]
             metrics['Beginning Balance'].append(current_values.sum())
             metrics['New Revenue'].append(0)
@@ -400,7 +400,7 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
         metrics_df[col] = metrics_df[col].apply(lambda x: f"{x:,.2f}")
     
     #Display the metrics table
-    st.write("### Dollar Value Movement Analysis")
+    st.write("##### Dollar Value Movement Analysis")
     st.write(metrics_df.set_index('Metric'))
     
     #Create waterfall chart showing dollar movement for the latest period
@@ -449,6 +449,119 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
             metrics_insights = generate_tab_insights(metrics_df, "dollar_retention", selected_value, selected_time)
             st.write(metrics_insights)
 
+def create_metrics_tab(value_df, selected_value, selected_time):
+    """Creates and populates the Metrics Analysis tab with retention and revenue metrics"""
+    st.write(f"Metrics Analysis of {selected_value}")
+    
+    #Initialize metrics DataFrame with all periods
+    periods = sorted(value_df.columns)
+    metrics_df = pd.DataFrame(index=[
+        'Annual Customer Period Average',
+        'Annual Average Dollar Per Customer',
+        'Annual Customer Retention (%)',
+        'Annual Dollar Period Average',
+        'Annual Dollar Net Retention (%)',
+        'Annual Dollar Retention Lost Only (%)',
+        'Annual Dollar Retention (Lost + Decrease) (%)',
+        'Lost Customer Average Size',
+        'Size Attrition Factor',
+        'New Revenue % of Beginning Revenue (%)'
+    ])
+    
+    #Calculate metrics for each period
+    for i, period in enumerate(periods):
+        current_values = value_df[period]
+        current_active = current_values > 0
+        
+        #Calculate basic period metrics
+        metrics_df.loc['Annual Customer Period Average', period] = current_active.sum()
+        metrics_df.loc['Annual Average Dollar Per Customer', period] = (
+            current_values[current_active].mean() if current_active.any() else 0
+        )
+        metrics_df.loc['Annual Dollar Period Average', period] = current_values.sum()
+        
+        if i > 0:
+            prev_period = periods[i-1]
+            prev_values = value_df[prev_period]
+            prev_active = prev_values > 0
+            
+            #Customer Retention
+            retained_customers = (current_active & prev_active).sum()
+            retention_rate = (retained_customers / prev_active.sum() * 100 
+                            if prev_active.any() else 100)
+            metrics_df.loc['Annual Customer Retention (%)', period] = retention_rate
+            
+            #Dollar Retention metrics
+            retained_value = current_values[prev_active].sum()
+            prev_total = prev_values.sum()
+            
+            #Net Dollar Retention
+            net_retention = (retained_value / prev_total * 100 
+                           if prev_total > 0 else 100)
+            metrics_df.loc['Annual Dollar Net Retention (%)', period] = net_retention
+            
+            #Lost Only Retention
+            lost_customers = prev_active & ~current_active
+            lost_value = prev_values[lost_customers].sum()
+            lost_only_retention = ((prev_total - lost_value) / prev_total * 100 
+                                 if prev_total > 0 else 100)
+            metrics_df.loc['Annual Dollar Retention Lost Only (%)', period] = lost_only_retention
+            
+            #Lost + Decrease Retention
+            decreases = current_values < prev_values
+            decrease_value = (prev_values[decreases] - current_values[decreases]).sum()
+            lost_decrease_retention = ((prev_total - lost_value - decrease_value) / prev_total * 100 
+                                    if prev_total > 0 else 100)
+            metrics_df.loc['Annual Dollar Retention (Lost + Decrease) (%)', period] = lost_decrease_retention
+            
+            #Lost Customer Metrics
+            if lost_customers.any():
+                lost_avg_size = prev_values[lost_customers].mean()
+                metrics_df.loc['Lost Customer Average Size', period] = lost_avg_size
+                active_avg_size = prev_values[prev_active].mean()
+                size_attrition = lost_avg_size / active_avg_size if active_avg_size > 0 else 0
+                metrics_df.loc['Size Attrition Factor', period] = size_attrition
+            
+            #New Revenue
+            new_customers = current_active & ~prev_active
+            new_revenue = current_values[new_customers].sum()
+            new_revenue_pct = (new_revenue / prev_total * 100 
+                             if prev_total > 0 else 0)
+            metrics_df.loc['New Revenue % of Beginning Revenue (%)', period] = new_revenue_pct
+    
+    #Format the values
+    format_dict = {
+        'Annual Customer Period Average': '{:.2f}',
+        'Annual Average Dollar Per Customer': '{:,.2f}',
+        'Annual Customer Retention (%)': '{:.2f}',
+        'Annual Dollar Period Average': '{:,.2f}',
+        'Annual Dollar Net Retention (%)': '{:.2f}',
+        'Annual Dollar Retention Lost Only (%)': '{:.2f}',
+        'Annual Dollar Retention (Lost + Decrease) (%)': '{:.2f}',
+        'Lost Customer Average Size': '{:,.2f}',
+        'Size Attrition Factor': '{:.2f}',
+        'New Revenue % of Beginning Revenue (%)': '{:.2f}'
+    }
+    
+    for idx, format_str in format_dict.items():
+        metrics_df.loc[idx] = metrics_df.loc[idx].apply(
+            lambda x: format_str.format(float(x)) if pd.notnull(x) else ''
+        )
+    
+    #Display the metrics table
+    st.write("##### Key Metrics Analysis")
+    st.dataframe(metrics_df)
+    
+    #Generate insights
+    with st.expander("📊 Metrics Analysis Insights", expanded=True):
+        with st.spinner("Generating metrics insights..."):
+            metrics_insights = generate_tab_insights(metrics_df, "metrics", selected_value, selected_time)
+            st.write(metrics_insights)
+
+
+
+
+
 
 
 
@@ -459,10 +572,6 @@ def create_bridge_tab(value_df, selected_value, selected_filter):
     st.write(f"Bridge Analysis of {selected_value}")
     st.write("Bridge Analysis Coming Soon")
 
-def create_metrics_tab(value_df, selected_value, selected_filter):
-    """Creates and populates the Metrics Analysis tab"""
-    st.write(f"Metrics Analysis of {selected_value}")
-    st.write("Metrics Analysis Coming Soon")
 
 def create_values_cohort_tab(value_df, selected_value, selected_time):
     """Analyzes absolute values by cohort"""
