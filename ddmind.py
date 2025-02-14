@@ -247,7 +247,7 @@ def main():
                             retention_rates.loc[period, 'Retention Rate (%)'] = retention_rate
 
                         analysis_dfs = {
-                            "Values": add_total_row(value_df),  # Raw values
+                            "Values": add_total_row(value_df),  #Raw values
                             "Count": add_total_row(active_df.astype(int)),  #Active customer counts
                             "Average": add_total_row(value_df.replace(0, np.nan)),  #Average values excluding zeros
                             "$ Lost": add_total_row(decreases_df),  #Lost dollar values

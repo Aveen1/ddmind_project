@@ -559,116 +559,250 @@ def create_metrics_tab(value_df, selected_value, selected_time):
             st.write(metrics_insights)
 
 
-
-
-
-
-
-
-
-
 def create_bridge_tab(value_df, selected_value, selected_filter):
     """Creates and populates the Bridge Analysis tab"""
     st.write(f"Bridge Analysis of {selected_value}")
     st.write("Bridge Analysis Coming Soon")
 
 
+
+
+
 def create_values_cohort_tab(value_df, selected_value, selected_time):
-    """Analyzes absolute values by cohort"""
-    st.write("### Value Analysis by Cohort")   
-    #Display raw values
-    st.write("### Raw Values by Cohort")
-    st.write(value_df)  
-    #Create heatmap of values
+    st.write("#### Value Analysis by Cohort")
+
+    #Get all unique years as columns
+    years = sorted(value_df.columns.unique())
+
+    #Get first time periods
+    first_periods = {}
+    for index in value_df.index:
+        # Find first non-zero value
+        first_non_zero = value_df.loc[index].replace(0, np.nan).first_valid_index()
+        if first_non_zero:
+            first_periods[index] = first_non_zero
+
+    #Create cohort table
+    cohort_data = []
+
+    #Group by first period
+    for start_year in years:
+        #Get customers that started in this period
+        starters = [customer for customer, first_period in first_periods.items() 
+                    if first_period == start_year]
+        
+        if starters:
+            row_data = {'First Time Period': start_year}
+            
+            #Calculate values for each period
+            for year in years:
+                if year >= start_year:
+                    current_value = value_df.loc[starters, year].sum()
+                    period_number = years.index(year) - years.index(start_year) + 1
+                    row_data[year] = f"{current_value:,.2f} ({period_number})"
+                else:
+                    row_data[year] = ""
+            
+            cohort_data.append(row_data)
+
+    #Convert to DataFrame
+    cohort_df = pd.DataFrame(cohort_data).set_index('First Time Period')
+
+    #Display the cohort table
+    st.write("##### Cohort Value Analysis")
+    st.write(cohort_df)
+
+    #Create heatmap visualization
+    numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=years)
+    for start_year in cohort_df.index:
+        for year in years:
+            value = cohort_df.loc[start_year, year]
+            if value:
+                numeric_value = float(value.split()[0].replace(',', ''))
+                numeric_cohort_df.loc[start_year, year] = numeric_value
+
     fig = px.imshow(
-        value_df,
-        title="Value Heatmap by Cohort",
-        labels=dict(x="Time Period", y="Customer", color="Value"),
+        numeric_cohort_df,
+        title="Cohort Value Heatmap",
+        labels=dict(x="Time Period", y="First Time Period", color="Value"),
         color_continuous_scale="Viridis"
     )
     st.plotly_chart(fig)
-    #Calculate and display summary statistics
-    summary_stats = pd.DataFrame({
-        'Total Value': value_df.sum(),
-        'Average Value': value_df.mean(),
-        'Median Value': value_df.median(),
-        'Active Customers': (value_df > 0).sum()
-    })
-    st.write("### Summary Statistics by Period")
-    st.write(summary_stats)
+
+    #Generate insights using the existing function
+    with st.expander("📊 Cohort Values Analysis Insights", expanded=True):
+        with st.spinner("Generating cohort insights..."):
+            cohort_insights = generate_tab_insights(numeric_cohort_df, "values_cohort", selected_value, selected_time)
+            st.write(cohort_insights)
+
+
+
+
 
 def create_count_cohort_tab(value_df, selected_value, selected_time):
-    """Analyzes customer counts by cohort"""
-    st.write("### Customer Count Analysis by Cohort")
-    
-    #Calculate active customer counts
-    active_counts = (value_df > 0).sum()
-    total_customers = len(value_df)
-    
-    #Create summary DataFrame
-    count_df = pd.DataFrame({
-        'Active Customers': active_counts,
-        'Inactive Customers': total_customers - active_counts,
-        'Total Customers': total_customers,
-        'Active Rate (%)': (active_counts / total_customers * 100).round(2)
-    })
-    
-    st.write("### Customer Counts by Period")
-    st.write(count_df)
-    
-    #Create line chart
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=count_df.index,
-        y=count_df['Active Rate (%)'],
-        mode='lines+markers',
-        name='Active Rate'
-    ))
-    fig.update_layout(
-        title='Customer Activity Rate Over Time',
-        xaxis_title='Time Period',
-        yaxis_title='Active Rate (%)',
-        yaxis_range=[0, 100]
+    """Creates and populates the Count Cohort Analysis tab"""
+    st.write("#### Count Analysis by Cohort")
+
+    #Get all unique periods as columns
+    periods = sorted(value_df.columns.unique())
+
+    #Get first time periods for each customer
+    first_periods = {}
+    for index in value_df.index:
+        # Find first non-zero value
+        first_non_zero = value_df.loc[index].replace(0, np.nan).first_valid_index()
+        if first_non_zero:
+            first_periods[index] = first_non_zero
+
+    #Create cohort table
+    cohort_data = []
+
+    #Group by first period
+    for start_period in periods:
+        #Get customers that started in this period
+        starters = [customer for customer, first_period in first_periods.items() 
+                   if first_period == start_period]
+        
+        if starters:
+            row_data = {'First Time Period': start_period}
+            
+            #Calculate counts for each period
+            for period in periods:
+                if period >= start_period:
+                    #Count active customers in current period
+                    active_count = (value_df.loc[starters, period] > 0).sum()
+                    #Calculate period number (1, 2, 3, etc.)
+                    period_number = periods.index(period) - periods.index(start_period) + 1
+                    row_data[period] = f"{active_count} ({period_number})"
+                else:
+                    row_data[period] = ""
+            
+            cohort_data.append(row_data)
+
+    #Convert to DataFrame
+    cohort_df = pd.DataFrame(cohort_data).set_index('First Time Period')
+
+    #Display the cohort table
+    st.write("##### Customer Count by Cohort")
+    st.write(cohort_df)
+
+    # Create heatmap visualization
+    numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
+    for start_period in cohort_df.index:
+        for period in periods:
+            value = cohort_df.loc[start_period, period]
+            if value:
+                numeric_value = int(value.split()[0])
+                numeric_cohort_df.loc[start_period, period] = numeric_value
+
+    fig = px.imshow(
+        numeric_cohort_df,
+        title="Cohort Customer Count Heatmap",
+        labels=dict(x="Time Period", y="First Time Period", color="Count"),
+        color_continuous_scale="Viridis"
     )
     st.plotly_chart(fig)
 
+    # Generate insights
+    with st.expander("📊 Count Cohort Analysis Insights", expanded=True):
+        with st.spinner("Generating cohort insights..."):
+            cohort_insights = generate_tab_insights(numeric_cohort_df, "count_cohort", selected_value, selected_time)
+            st.write(cohort_insights)
+
+
+
+
+
+
+
+
 def create_average_cohort_tab(value_df, selected_value, selected_time):
-    """Analyzes average values by cohort"""
-    st.write("### Average Value Analysis by Cohort")
-    
-    #Calculate average values (excluding zeros)
-    avg_values = value_df.replace(0, np.nan).mean()
-    median_values = value_df.replace(0, np.nan).median()
-    
-    #Create summary DataFrame
-    avg_df = pd.DataFrame({
-        'Average Value': avg_values.round(2),
-        'Median Value': median_values.round(2)
-    })
-    
-    st.write("### Average Values by Period")
-    st.write(avg_df)
-    
-    #Create line chart
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=avg_df.index,
-        y=avg_df['Average Value'],
-        mode='lines+markers',
-        name='Average Value'
-    ))
-    fig.add_trace(go.Scatter(
-        x=avg_df.index,
-        y=avg_df['Median Value'],
-        mode='lines+markers',
-        name='Median Value'
-    ))
-    fig.update_layout(
-        title='Value Metrics Over Time',
-        xaxis_title='Time Period',
-        yaxis_title='Value'
+    """Creates and populates the Average Value Cohort Analysis tab"""
+    st.write("#### Average Value Analysis by Cohort")
+
+    #Get all unique periods as columns
+    periods = sorted(value_df.columns.unique())
+
+    #Get first time periods for each customer
+    first_periods = {}
+    for index in value_df.index:
+        #Find first non-zero value
+        first_non_zero = value_df.loc[index].replace(0, np.nan).first_valid_index()
+        if first_non_zero:
+            first_periods[index] = first_non_zero
+
+    #Create cohort table
+    cohort_data = []
+
+    #Group by first period
+    for start_period in periods:
+        #Get customers that started in this period
+        starters = [customer for customer, first_period in first_periods.items() 
+                   if first_period == start_period]
+        
+        if starters:
+            row_data = {'First Time Period': start_period}
+            
+            #Calculate average values for each period
+            for period in periods:
+                if period >= start_period:
+                    #Get values for active customers in current period
+                    period_values = value_df.loc[starters, period]
+                    active_values = period_values[period_values > 0]
+                    if not active_values.empty:
+                        avg_value = active_values.mean()
+                        #Calculate period number (1, 2, 3, etc.)
+                        period_number = periods.index(period) - periods.index(start_period) + 1
+                        #Format with commas and 2 decimal places
+                        row_data[period] = f"{avg_value:,.2f}"
+                        #Add period number in small circles before the value
+                        row_data[f"{period}_number"] = period_number
+                else:
+                    row_data[period] = ""
+                    row_data[f"{period}_number"] = None
+            
+            cohort_data.append(row_data)
+
+    #Convert to DataFrame
+    cohort_df = pd.DataFrame(cohort_data).set_index('First Time Period')
+
+    #Create a styled version of the DataFrame for display
+    display_df = pd.DataFrame(index=cohort_df.index, columns=periods)
+    for start_period in cohort_df.index:
+        for period in periods:
+            value = cohort_df.loc[start_period, period]
+            period_number = cohort_df.loc[start_period, f"{period}_number"]
+            if value and period_number:
+                display_df.loc[start_period, period] = value
+            else:
+                display_df.loc[start_period, period] = ""
+
+    #Display the cohort table
+    st.write("##### Average Value by Cohort")
+    st.write(display_df)
+
+    #Create heatmap visualization
+    numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
+    for start_period in cohort_df.index:
+        for period in periods:
+            value = cohort_df.loc[start_period, period]
+            if value:
+                numeric_value = float(value.replace(',', ''))
+                numeric_cohort_df.loc[start_period, period] = numeric_value
+
+    fig = px.imshow(
+        numeric_cohort_df,
+        title="Cohort Average Value Heatmap",
+        labels=dict(x="Time Period", y="First Time Period", color="Average Value"),
+        color_continuous_scale="Viridis"
     )
     st.plotly_chart(fig)
+
+    #Generate insights
+    with st.expander("📊 Average Value Cohort Analysis Insights", expanded=True):
+        with st.spinner("Generating cohort insights..."):
+            cohort_insights = generate_tab_insights(numeric_cohort_df, "average_cohort", selected_value, selected_time)
+            st.write(cohort_insights)
 
 def create_dollar_lost_cohort_tab(value_df, selected_value, selected_time):
     """Analyzes dollar value lost by cohort"""

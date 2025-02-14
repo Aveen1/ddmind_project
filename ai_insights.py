@@ -117,13 +117,9 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
 
 
 
-
-            #"bridge": f"Analyze bridge between {selected_value}, identifying connections and relationships between categories.",            
-            "values": f"Analyze {selected_value} values across {selected_filter} categories, identifying top performers, trends, and patterns.",
-            "lost": f"Analyze lost revenue for {selected_value}, identifying areas of revenue loss and potential recovery strategies.",
-            "changes": f"Analyze changes in revenue for {selected_value}, identifying areas of growth and decline.",
-            "lost_products": f"Analyze lost products for {selected_value}, identifying discontinued products and potential replacements.",
-            "product_retention": f"Analyze product retention rates for {selected_value}, identifying product lifecycle trends and implications."
+            "values_cohort": f"Analyze cohort analysis for {selected_value}, identifying customer behavior trends and patterns.",
+            "count_cohort": f"Analyze cohort count distribution for {selected_value}, identifying customer retention and acquisition trends.",
+            "average_cohort": f"Analyze cohort average {selected_value} trends, comparing across cohorts and identifying growth patterns." 
         }
         
         prompt = f"{prompts[analysis_type.lower()]} Data: {df_preview}"
