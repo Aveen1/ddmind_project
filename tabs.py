@@ -111,39 +111,24 @@ def create_average_tab(avg_df, selected_value, selected_filter):
 
 def create_growth_tab(growth_df, selected_value, selected_filter):
     """Creates and populates the Growth Analysis tab with correct percentage formatting"""
-    
-    # Round values to 2 decimal places
     rounded_df = growth_df.round(2)
-    
-    # Calculate total as weighted sum instead of mean
     def calculate_total(col):
         valid_values = col[col.notna()]
         weights = valid_values.abs() / valid_values.abs().sum()
         return (valid_values * weights).sum() if not valid_values.empty else 0
-    
-    # Calculate totals row
+
     total_row = rounded_df.apply(calculate_total)
-    
-    # Combine with original dataframe
     result_df = pd.concat([rounded_df, pd.DataFrame(total_row).T])
     result_df.index = list(rounded_df.index) + ['Total']
-    
-    # Format percentages, removing 'nan%' display
     def format_percentage(x):
         if pd.isna(x):
             return ""
         return f"{x:.2f}%" if x != 0 else ""
     
     formatted_df = result_df.applymap(format_percentage)
-    
-    # Display the table
     st.write(f"Year-over-Year Growth of {selected_value} (%)")
     st.write(formatted_df)
-    
-    # Create and display bar chart
     st.plotly_chart(create_bar_chart(growth_df, f"Growth Rate by Category"))
-    
-    # Create and display heatmap
     fig_heatmap = px.imshow(
         growth_df,
         title=f"Growth Rate Heatmap for {selected_value}",
@@ -151,15 +136,12 @@ def create_growth_tab(growth_df, selected_value, selected_filter):
         aspect="auto"
     )
     
-    # Update heatmap layout
     fig_heatmap.update_layout(
         height=600,
         yaxis_title="Category",
         xaxis_title="Time Period"
     )
     st.plotly_chart(fig_heatmap)
-    
-    # Display insights
     with st.expander("📊 Growth Analysis Insights", expanded=True):
         with st.spinner("Generating growth insights..."):
             growth_insights = generate_tab_insights(growth_df, "growth", selected_value, selected_filter)
