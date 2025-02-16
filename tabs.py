@@ -110,14 +110,56 @@ def create_average_tab(avg_df, selected_value, selected_filter):
             st.write(average_insights)
 
 def create_growth_tab(growth_df, selected_value, selected_filter):
-    """Creates and populates the Growth Analysis tab"""
+    """Creates and populates the Growth Analysis tab with correct percentage formatting"""
+    
+    # Round values to 2 decimal places
+    rounded_df = growth_df.round(2)
+    
+    # Calculate total as weighted sum instead of mean
+    def calculate_total(col):
+        valid_values = col[col.notna()]
+        weights = valid_values.abs() / valid_values.abs().sum()
+        return (valid_values * weights).sum() if not valid_values.empty else 0
+    
+    # Calculate totals row
+    total_row = rounded_df.apply(calculate_total)
+    
+    # Combine with original dataframe
+    result_df = pd.concat([rounded_df, pd.DataFrame(total_row).T])
+    result_df.index = list(rounded_df.index) + ['Total']
+    
+    # Format percentages, removing 'nan%' display
+    def format_percentage(x):
+        if pd.isna(x):
+            return ""
+        return f"{x:.2f}%" if x != 0 else ""
+    
+    formatted_df = result_df.applymap(format_percentage)
+    
+    # Display the table
     st.write(f"Year-over-Year Growth of {selected_value} (%)")
-    st.write(add_total_row(growth_df.round(2)).applymap(lambda x: f"{x}%"))
+    st.write(formatted_df)
+    
+    # Create and display bar chart
     st.plotly_chart(create_bar_chart(growth_df, f"Growth Rate by Category"))
-    fig_heatmap = px.imshow(growth_df,
-                           title=f"Growth Rate Heatmap for {selected_value}",
-                           labels=dict(x="Time Period", y="Category", color="Growth Rate (%)"))
+    
+    # Create and display heatmap
+    fig_heatmap = px.imshow(
+        growth_df,
+        title=f"Growth Rate Heatmap for {selected_value}",
+        labels=dict(x="Time Period", y="Category", color="Growth Rate (%)"),
+        aspect="auto"
+    )
+    
+    # Update heatmap layout
+    fig_heatmap.update_layout(
+        height=600,
+        yaxis_title="Category",
+        xaxis_title="Time Period"
+    )
     st.plotly_chart(fig_heatmap)
+    
+    # Display insights
     with st.expander("📊 Growth Analysis Insights", expanded=True):
         with st.spinner("Generating growth insights..."):
             growth_insights = generate_tab_insights(growth_df, "growth", selected_value, selected_filter)
@@ -217,6 +259,12 @@ def create_top_customers_subtab(value_df):
             chat = ChatOpenAI(model="gpt-4o", temperature=0)
             top_customer_insights = chat(messages)
             st.write(top_customer_insights.content)
+
+def create_bridge_tab(value_df, selected_value, selected_filter):
+    """Creates and populates the Bridge Analysis tab"""
+    st.write(f"Bridge Analysis of {selected_value}")
+    st.write("Bridge Analysis Coming Soon")
+
 
 def create_snowball_tab(value_df, selected_value, selected_time):
     """Creates and populates the Snowball Analysis tab with customer movement metrics"""
@@ -558,11 +606,6 @@ def create_metrics_tab(value_df, selected_value, selected_time):
             metrics_insights = generate_tab_insights(metrics_df, "metrics", selected_value, selected_time)
             st.write(metrics_insights)
 
-def create_bridge_tab(value_df, selected_value, selected_filter):
-    """Creates and populates the Bridge Analysis tab"""
-    st.write(f"Bridge Analysis of {selected_value}")
-    st.write("Bridge Analysis Coming Soon")
-
 
 
 def create_values_cohort_tab(value_df, selected_value, selected_time):
@@ -790,11 +833,6 @@ def create_average_cohort_tab(value_df, selected_value, selected_time):
             cohort_insights = generate_tab_insights(numeric_cohort_df, "average_cohort", selected_value, selected_time)
             st.write(cohort_insights)
 
-
-
-
-
-
 def create_dollar_lost_cohort_tab(value_df, selected_value, selected_time):
     """Creates and populates the Dollar Lost Cohort Analysis tab"""
     st.write("#### Dollar Value Lost Analysis by Cohort")
@@ -968,10 +1006,6 @@ def create_dollar_changes_cohort_tab(value_df, selected_value, selected_time):
             combined_df = numeric_increase_df - numeric_decrease_df
             cohort_insights = generate_tab_insights(combined_df, "dollar_changes_cohort", selected_value, selected_time)
             st.write(cohort_insights)
-
-
-
-
 
 def create_lost_product_cohort_tab(value_df, selected_value, selected_time):
     """Creates and populates the Lost Product Cohort Analysis tab"""
