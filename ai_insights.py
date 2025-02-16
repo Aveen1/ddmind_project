@@ -103,6 +103,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
         chat = ChatOpenAI(model="gpt-4o", temperature=0)
         
         prompts = {
+            #Segmentation insights
             "value": f"Analyze {selected_value} values across {selected_filter} categories, identifying top performers, trends, and patterns.",
             "total_sum": f"Analyze total sum trends for {selected_value}, describing overall trend and growth rate.",
             "percentage": f"Analyze percentage distribution of {selected_value}, identifying dominant categories and distribution shifts.",
@@ -111,15 +112,20 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
             "count": f"Analyze count distribution of {selected_value}, identifying most frequent categories and patterns.",
             "concentration": f"Analyze concentration of {selected_value}, identifying concentrated areas and changes.",
             
+            #Retention insights
             "snowball": f"Analyze snowball effect of {selected_value}, identifying exponential growth patterns and implications.",
             "dollar_retention": f"Analyze dollar retention rates for {selected_value}, identifying customer loyalty trends and implications.",
             "metrics": f"Analyze key metrics for {selected_value}, identifying performance trends and patterns.",
 
-
-
+            #Cohort insights
             "values_cohort": f"Analyze cohort analysis for {selected_value}, identifying customer behavior trends and patterns.",
             "count_cohort": f"Analyze cohort count distribution for {selected_value}, identifying customer retention and acquisition trends.",
-            "average_cohort": f"Analyze cohort average {selected_value} trends, comparing across cohorts and identifying growth patterns." 
+            "average_cohort": f"Analyze cohort average {selected_value} trends, comparing across cohorts and identifying growth patterns.",
+            "dollar_lost_cohort": f"Analyze cohort analysis for dollar lost, identifying customer behavior trends and patterns.",
+            "dollar_changes_cohort": f"Analyze cohort analysis for dollar changes, identifying customer behavior trends and patterns.",
+            "lost_products_cohort": f"Analyze cohort analysis for lost products, identifying customer behavior trends and patterns.",
+            "product_retention_cohort": f"Analyze product retention rates for {selected_value}, identifying customer loyalty trends and implications."
+
         }
         
         prompt = f"{prompts[analysis_type.lower()]} Data: {df_preview}"

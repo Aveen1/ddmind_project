@@ -215,6 +215,7 @@ def main():
                     elif selected_analysis == "Segmentation Analysis":
                         analysis_dfs = {
                             "Value": add_total_row(value_df),
+                            "Average": add_total_row(avg_df),
                             "Percentage": add_total_row(pct_df),
                             "Growth": add_total_row(growth_df),
                             "Bridge Analysis": add_total_row(value_df),
@@ -223,42 +224,17 @@ def main():
                         }       
 
                     elif selected_analysis == "Cohort Analysis":
-
-                        #Prepare period-over-period changes for dollar analysis
-                        changes_df = value_df.diff(axis=1)
-                        increases_df = changes_df.clip(lower=0)
-                        decreases_df = changes_df.clip(upper=0).abs()
-
-                        #Prepare activity indicators
-                        active_df = (value_df > 0)
-                        previous_active = value_df.shift(1, axis=1) > 0
-                        current_inactive = value_df == 0
-                        lost_products = (previous_active & current_inactive)
-
-                        #Calculate average values (excluding zeros)
-                        avg_values = value_df.replace(0, np.nan).mean()
-                        
-                        #Calculate retention rates
-                        initial_active = value_df.iloc[:, 0] > 0
-                        retention_rates = pd.DataFrame(index=value_df.columns)
-                        for period in value_df.columns:
-                            current_active = value_df[period] > 0
-                            retention_rate = (current_active & initial_active).sum() / initial_active.sum() * 100
-                            retention_rates.loc[period, 'Retention Rate (%)'] = retention_rate
-
                         analysis_dfs = {
-                            "Values": add_total_row(value_df),  #Raw values
-                            "Count": add_total_row(active_df.astype(int)),  #Active customer counts
-                            "Average": add_total_row(value_df.replace(0, np.nan)),  #Average values excluding zeros
-                            "$ Lost": add_total_row(decreases_df),  #Lost dollar values
-                            "$ Changes": {
-                                'increases': add_total_row(increases_df),
-                                'decreases': add_total_row(decreases_df)
-                            },  #Combined increases and decreases
-                            "Lost Products": add_total_row(lost_products.astype(int)),  #Lost product indicators
-                            "Product Retention": retention_rates,  #Product retention rates
-                            "Concentration Analysis": add_total_row(concentration_df)  #Concentration analysis
+                            "Values": add_total_row(value_df),
+                            "Count": add_total_row(value_df),
+                            "Average": add_total_row(avg_df),
+                            "$ Lost": add_total_row(value_df),
+                            "$ Changes": add_total_row(value_df), 
+                            "Lost Products": add_total_row(value_df),
+                            "Lost Product Retention": add_total_row(value_df),
+                            "Concentration Analysis": add_total_row(concentration_df)
                         }
+
 
                     else:
                         analysis_dfs = {

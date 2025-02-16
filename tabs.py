@@ -558,13 +558,10 @@ def create_metrics_tab(value_df, selected_value, selected_time):
             metrics_insights = generate_tab_insights(metrics_df, "metrics", selected_value, selected_time)
             st.write(metrics_insights)
 
-
 def create_bridge_tab(value_df, selected_value, selected_filter):
     """Creates and populates the Bridge Analysis tab"""
     st.write(f"Bridge Analysis of {selected_value}")
     st.write("Bridge Analysis Coming Soon")
-
-
 
 
 
@@ -635,10 +632,6 @@ def create_values_cohort_tab(value_df, selected_value, selected_time):
             cohort_insights = generate_tab_insights(numeric_cohort_df, "values_cohort", selected_value, selected_time)
             st.write(cohort_insights)
 
-
-
-
-
 def create_count_cohort_tab(value_df, selected_value, selected_time):
     """Creates and populates the Count Cohort Analysis tab"""
     st.write("#### Count Analysis by Cohort")
@@ -708,13 +701,6 @@ def create_count_cohort_tab(value_df, selected_value, selected_time):
         with st.spinner("Generating cohort insights..."):
             cohort_insights = generate_tab_insights(numeric_cohort_df, "count_cohort", selected_value, selected_time)
             st.write(cohort_insights)
-
-
-
-
-
-
-
 
 def create_average_cohort_tab(value_df, selected_value, selected_time):
     """Creates and populates the Average Value Cohort Analysis tab"""
@@ -804,148 +790,331 @@ def create_average_cohort_tab(value_df, selected_value, selected_time):
             cohort_insights = generate_tab_insights(numeric_cohort_df, "average_cohort", selected_value, selected_time)
             st.write(cohort_insights)
 
+
+
+
+
+
 def create_dollar_lost_cohort_tab(value_df, selected_value, selected_time):
-    """Analyzes dollar value lost by cohort"""
-    st.write("### Dollar Value Lost Analysis by Cohort")
-    
-    #Calculate period-over-period changes
-    changes = value_df.diff(axis=1)
-    
-    #Calculate total dollar value lost (negative changes only)
-    dollar_lost = changes.clip(upper=0).abs()
-    
-    st.write("### Dollar Value Lost by Period")
-    st.write(dollar_lost.sum().to_frame('Total Dollar Lost'))
-    
-    #Create heatmap
+    """Creates and populates the Dollar Lost Cohort Analysis tab"""
+    st.write("#### Dollar Value Lost Analysis by Cohort")
+
+    #Get all unique periods as columns
+    periods = sorted(value_df.columns.unique())
+
+    #Get first time periods for each customer
+    first_periods = {}
+    for index in value_df.index:
+        first_non_zero = value_df.loc[index].replace(0, np.nan).first_valid_index()
+        if first_non_zero:
+            first_periods[index] = first_non_zero
+
+    #Create cohort table
+    cohort_data = []
+
+    #Group by first period
+    for start_period in periods:
+        # Get customers that started in this period
+        starters = [customer for customer, first_period in first_periods.items() 
+                   if first_period == start_period]
+        
+        if starters:
+            row_data = {'First Time Period': start_period}
+            
+            #Calculate dollar lost for each period
+            for period in periods:
+                if period >= start_period:
+                    #Get values for current and previous period
+                    if periods.index(period) > 0:
+                        prev_period = periods[periods.index(period) - 1]
+                        curr_values = value_df.loc[starters, period]
+                        prev_values = value_df.loc[starters, prev_period]
+                        #Calculate lost dollars (where value decreased)
+                        lost_dollars = (prev_values - curr_values).clip(lower=0).sum()
+                        period_number = periods.index(period) - periods.index(start_period) + 1
+                        row_data[period] = f"{lost_dollars:,.2f} ({period_number})"
+                    else:
+                        row_data[period] = f"0.00 (1)"
+                else:
+                    row_data[period] = ""
+            
+            cohort_data.append(row_data)
+
+    #Convert to DataFrame
+    cohort_df = pd.DataFrame(cohort_data).set_index('First Time Period')
+
+    #Display the cohort table
+    st.write("##### Dollar Value Lost by Cohort")
+    st.write(cohort_df)
+
+    #Create heatmap visualization
+    numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
+    for start_period in cohort_df.index:
+        for period in periods:
+            value = cohort_df.loc[start_period, period]
+            if value:
+                numeric_value = float(value.split()[0].replace(',', ''))
+                numeric_cohort_df.loc[start_period, period] = numeric_value
+
     fig = px.imshow(
-        dollar_lost,
-        title="Dollar Value Lost Heatmap",
-        labels=dict(x="Time Period", y="Customer", color="Lost Value"),
+        numeric_cohort_df,
+        title="Cohort Dollar Value Lost Heatmap",
+        labels=dict(x="Time Period", y="First Time Period", color="Lost Value"),
         color_continuous_scale="Reds"
     )
     st.plotly_chart(fig)
 
+    #Generate insights
+    with st.expander("📊 Dollar Lost Cohort Analysis Insights", expanded=True):
+        with st.spinner("Generating cohort insights..."):
+            cohort_insights = generate_tab_insights(numeric_cohort_df, "dollar_lost_cohort", selected_value, selected_time)
+            st.write(cohort_insights)
+
 def create_dollar_changes_cohort_tab(value_df, selected_value, selected_time):
-    """Analyzes dollar value changes (increases and decreases) by cohort"""
-    st.write("### Dollar Value Changes Analysis by Cohort")
+    """Creates and populates the Dollar Changes Cohort Analysis tab"""
+    st.write("#### Dollar Value Changes Analysis by Cohort")
+
+    #Get all unique periods as columns
+    periods = sorted(value_df.columns.unique())
+
+    #Get first time periods for each customer
+    first_periods = {}
+    for index in value_df.index:
+        first_non_zero = value_df.loc[index].replace(0, np.nan).first_valid_index()
+        if first_non_zero:
+            first_periods[index] = first_non_zero
+
+    #Create cohort tables for increases and decreases
+    increase_data = []
+    decrease_data = []
+
+    #Group by first period
+    for start_period in periods:
+        starters = [customer for customer, first_period in first_periods.items() 
+                   if first_period == start_period]
+        
+        if starters:
+            increase_row = {'First Time Period': start_period}
+            decrease_row = {'First Time Period': start_period}
+            
+            for period in periods:
+                if period >= start_period:
+                    if periods.index(period) > 0:
+                        prev_period = periods[periods.index(period) - 1]
+                        curr_values = value_df.loc[starters, period]
+                        prev_values = value_df.loc[starters, prev_period]
+                        
+                        #Calculate increases and decreases
+                        changes = curr_values - prev_values
+                        increases = changes[changes > 0].sum()
+                        decreases = changes[changes < 0].abs().sum()
+                        
+                        period_number = periods.index(period) - periods.index(start_period) + 1
+                        increase_row[period] = f"{increases:,.2f} ({period_number})"
+                        decrease_row[period] = f"{decreases:,.2f} ({period_number})"
+                    else:
+                        increase_row[period] = f"0.00 (1)"
+                        decrease_row[period] = f"0.00 (1)"
+                else:
+                    increase_row[period] = ""
+                    decrease_row[period] = ""
+            
+            increase_data.append(increase_row)
+            decrease_data.append(decrease_row)
+
+    #Convert to DataFrames
+    increase_df = pd.DataFrame(increase_data).set_index('First Time Period')
+    decrease_df = pd.DataFrame(decrease_data).set_index('First Time Period')
+
+    #Display tables
+    st.write("##### Value Increases by Cohort")
+    st.write(increase_df)
+    st.write("##### Value Decreases by Cohort")
+    st.write(decrease_df)
+
+    #Create heatmaps
+    numeric_increase_df = pd.DataFrame(index=increase_df.index, columns=periods)
+    numeric_decrease_df = pd.DataFrame(index=decrease_df.index, columns=periods)
     
-    #Calculate period-over-period changes
-    changes = value_df.diff(axis=1)
-    
-    #Separate increases and decreases
-    increases = changes.clip(lower=0)
-    decreases = changes.clip(upper=0).abs()
-    
-    #Create summary DataFrames
-    increase_summary = pd.DataFrame({
-        'Total Increases': increases.sum(),
-        'Average Increase': increases[increases > 0].mean(),
-        'Customers with Increases': (increases > 0).sum()
-    })
-    
-    decrease_summary = pd.DataFrame({
-        'Total Decreases': decreases.sum(),
-        'Average Decrease': decreases[decreases > 0].mean(),
-        'Customers with Decreases': (decreases > 0).sum()
-    })
-    
-    st.write("### Value Increases by Period")
-    st.write(increase_summary)
-    st.write("### Value Decreases by Period")
-    st.write(decrease_summary)
-    
-    #Create combined visualization
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=increase_summary.index,
-        y=increase_summary['Total Increases'],
-        name='Increases',
-        marker_color='green'
-    ))
-    fig.add_trace(go.Bar(
-        x=decrease_summary.index,
-        y=-decrease_summary['Total Decreases'],
-        name='Decreases',
-        marker_color='red'
-    ))
-    fig.update_layout(
-        title='Dollar Value Changes Over Time',
-        barmode='relative',
-        xaxis_title='Time Period',
-        yaxis_title='Value Change'
+    for start_period in increase_df.index:
+        for period in periods:
+            inc_value = increase_df.loc[start_period, period]
+            dec_value = decrease_df.loc[start_period, period]
+            
+            if inc_value:
+                numeric_increase_df.loc[start_period, period] = float(inc_value.split()[0].replace(',', ''))
+            if dec_value:
+                numeric_decrease_df.loc[start_period, period] = float(dec_value.split()[0].replace(',', ''))
+
+    fig1 = px.imshow(
+        numeric_increase_df,
+        title="Cohort Value Increases Heatmap",
+        labels=dict(x="Time Period", y="First Time Period", color="Increase Value"),
+        color_continuous_scale="Greens"
     )
-    st.plotly_chart(fig)
+    fig2 = px.imshow(
+        numeric_decrease_df,
+        title="Cohort Value Decreases Heatmap",
+        labels=dict(x="Time Period", y="First Time Period", color="Decrease Value"),
+        color_continuous_scale="Reds"
+    )
+    
+    st.plotly_chart(fig1)
+    st.plotly_chart(fig2)
+
+    #Generate insights
+    with st.expander("📊 Dollar Changes Cohort Analysis Insights", expanded=True):
+        with st.spinner("Generating cohort insights..."):
+            combined_df = numeric_increase_df - numeric_decrease_df
+            cohort_insights = generate_tab_insights(combined_df, "dollar_changes_cohort", selected_value, selected_time)
+            st.write(cohort_insights)
+
+
+
+
 
 def create_lost_product_cohort_tab(value_df, selected_value, selected_time):
-    """Analyzes lost products/services by cohort"""
-    st.write("### Lost Product Analysis by Cohort")
-    
-    #Calculate products/services lost (where value becomes zero)
-    previous_active = value_df.shift(1, axis=1) > 0
-    current_inactive = value_df == 0
-    lost_products = (previous_active & current_inactive)
-    
-    lost_counts = lost_products.sum()
-    active_counts = (value_df > 0).sum()
-    
-    #Create summary DataFrame
-    summary_df = pd.DataFrame({
-        'Lost Products': lost_counts,
-        'Active Products': active_counts,
-        'Loss Rate (%)': (lost_counts / active_counts.shift(1) * 100).round(2)
-    })
-    
-    st.write("### Lost Products Summary")
-    st.write(summary_df)
-    
-    #Create visualization
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=summary_df.index,
-        y=summary_df['Loss Rate (%)'],
-        mode='lines+markers',
-        name='Loss Rate'
-    ))
-    fig.update_layout(
-        title='Product Loss Rate Over Time',
-        xaxis_title='Time Period',
-        yaxis_title='Loss Rate (%)',
-        yaxis_range=[0, 100]
+    """Creates and populates the Lost Product Cohort Analysis tab"""
+    st.write("#### Lost Product Analysis by Cohort")
+
+    #Get all unique periods as columns
+    periods = sorted(value_df.columns.unique())
+
+    #Get first time periods for each customer
+    first_periods = {}
+    for index in value_df.index:
+        first_non_zero = value_df.loc[index].replace(0, np.nan).first_valid_index()
+        if first_non_zero:
+            first_periods[index] = first_non_zero
+
+    #Create cohort table
+    cohort_data = []
+
+    #Group by first period
+    for start_period in periods:
+        starters = [customer for customer, first_period in first_periods.items() 
+                   if first_period == start_period]
+        
+        if starters:
+            row_data = {'First Time Period': start_period}
+            
+            for period in periods:
+                if period >= start_period:
+                    if periods.index(period) > 0:
+                        prev_period = periods[periods.index(period) - 1]
+                        curr_values = value_df.loc[starters, period]
+                        prev_values = value_df.loc[starters, prev_period]
+                        
+                        #Count lost products (where value became zero)
+                        lost_count = ((prev_values > 0) & (curr_values == 0)).sum()
+                        period_number = periods.index(period) - periods.index(start_period) + 1
+                        row_data[period] = f"{lost_count} ({period_number})"
+                    else:
+                        row_data[period] = f"0 (1)"
+                else:
+                    row_data[period] = ""
+            
+            cohort_data.append(row_data)
+
+    #Convert to DataFrame
+    cohort_df = pd.DataFrame(cohort_data).set_index('First Time Period')
+
+    #Display the cohort table
+    st.write("##### Lost Products by Cohort")
+    st.write(cohort_df)
+
+    #Create heatmap visualization
+    numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
+    for start_period in cohort_df.index:
+        for period in periods:
+            value = cohort_df.loc[start_period, period]
+            if value:
+                numeric_value = int(value.split()[0])
+                numeric_cohort_df.loc[start_period, period] = numeric_value
+
+    fig = px.imshow(
+        numeric_cohort_df,
+        title="Lost Products Heatmap",
+        labels=dict(x="Time Period", y="First Time Period", color="Lost Products"),
+        color_continuous_scale="Reds"
     )
     st.plotly_chart(fig)
 
+    #Generate insights
+    with st.expander("📊 Lost Products Cohort Analysis Insights", expanded=True):
+        with st.spinner("Generating cohort insights..."):
+            cohort_insights = generate_tab_insights(numeric_cohort_df, "lost_products_cohort", selected_value, selected_time)
+            st.write(cohort_insights)
+
 def create_product_retention_cohort_tab(value_df, selected_value, selected_time):
-    """Analyzes product/service retention by cohort"""
-    st.write("### Product Retention Analysis by Cohort")
-    
-    #Calculate retention (products/services that remain active)
-    initial_products = value_df.iloc[:, 0] > 0
-    retention_matrix = pd.DataFrame(index=value_df.columns)
-    
-    for period in value_df.columns:
-        current_active = value_df[period] > 0
-        retention_rate = (current_active & initial_products).sum() / initial_products.sum() * 100
-        retention_matrix.loc[period, 'Retention Rate (%)'] = retention_rate
-    
-    st.write("### Product Retention Rates")
-    st.write(retention_matrix)
-    
-    #Create visualization
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=retention_matrix.index,
-        y=retention_matrix['Retention Rate (%)'],
-        mode='lines+markers',
-        name='Retention Rate'
-    ))
-    fig.update_layout(
-        title='Product Retention Rate Over Time',
-        xaxis_title='Time Period',
-        yaxis_title='Retention Rate (%)',
-        yaxis_range=[0, 100]
+    """Creates and populates the Product Retention Cohort Analysis tab"""
+    st.write("#### Product Retention Analysis by Cohort")
+
+    #Get all unique periods as columns
+    periods = sorted(value_df.columns.unique())
+
+    #Get first time periods for each customer
+    first_periods = {}
+    for index in value_df.index:
+        first_non_zero = value_df.loc[index].replace(0, np.nan).first_valid_index()
+        if first_non_zero:
+            first_periods[index] = first_non_zero
+
+    #Create cohort table
+    cohort_data = []
+
+    #Group by first period
+    for start_period in periods:
+        starters = [customer for customer, first_period in first_periods.items() 
+                   if first_period == start_period]
+        
+        if starters:
+            row_data = {'First Time Period': start_period}
+            initial_active = (value_df.loc[starters, start_period] > 0).sum()
+            
+            for period in periods:
+                if period >= start_period:
+                    curr_active = (value_df.loc[starters, period] > 0).sum()
+                    retention_rate = (curr_active / initial_active * 100) if initial_active > 0 else 0
+                    period_number = periods.index(period) - periods.index(start_period) + 1
+                    row_data[period] = f"{retention_rate:.2f}% ({period_number})"
+                else:
+                    row_data[period] = ""
+            
+            cohort_data.append(row_data)
+
+    #Convert to DataFrame
+    cohort_df = pd.DataFrame(cohort_data).set_index('First Time Period')
+
+    #Display the cohort table
+    st.write("##### Product Retention Rates by Cohort")
+    st.write(cohort_df)
+
+    #Create heatmap visualization
+    numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
+    for start_period in cohort_df.index:
+        for period in periods:
+            value = cohort_df.loc[start_period, period]
+            if value:
+                numeric_value = float(value.split('%')[0])
+                numeric_cohort_df.loc[start_period, period] = numeric_value
+
+    fig = px.imshow(
+        numeric_cohort_df,
+        title="Product Retention Rate Heatmap",
+        labels=dict(x="Time Period", y="First Time Period", color="Retention Rate (%)"),
+        color_continuous_scale="Viridis"
     )
     st.plotly_chart(fig)
+
+    #Generate insights
+    with st.expander("📊 Product Retention Cohort Analysis Insights", expanded=True):
+        with st.spinner("Generating cohort insights..."):
+            cohort_insights = generate_tab_insights(numeric_cohort_df, "product_retention_cohort", selected_value, selected_time)
+            st.write(cohort_insights)
+
+
+
 
 
 def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, count_df, concentration_df, selected_value, selected_time, analysis_type):
@@ -964,26 +1133,28 @@ def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, coun
             create_metrics_tab(value_df, selected_value, selected_time)
     
     elif analysis_type == "Segmentation Analysis":
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-            "Values", "Percentage", "Percentage YoY Growth","Bridge Analysis", "Count", "Concentration Analysis"
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+            "Values", "Average", "Percentage", "Percentage YoY Growth","Bridge Analysis", "Count", "Concentration Analysis"
         ])
         
         with tab1:
             create_value_tab(value_df, selected_value, selected_time)
         with tab2:
-            create_percentage_tab(pct_df, selected_value, selected_time)
+            create_average_tab(avg_df, selected_value, selected_time)
         with tab3:
-            create_growth_tab(growth_df, selected_value, selected_time)
+            create_percentage_tab(pct_df, selected_value, selected_time)
         with tab4:
-            create_bridge_tab(value_df, selected_value, selected_time)
+            create_growth_tab(growth_df, selected_value, selected_time)
         with tab5:
-            create_count_tab(count_df, selected_value, selected_time)
+            create_bridge_tab(value_df, selected_value, selected_time)
         with tab6:
+            create_count_tab(count_df, selected_value, selected_time)
+        with tab7:
             create_concentration_tab(concentration_df, value_df, selected_value, selected_time)
 
     elif analysis_type == "Cohort Analysis":
         tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-            "Values", "Count", "Average", "$ Lost", "$ Changes", "Lost Products", "Product Retention", "Concentration Analysis"
+            "Values", "Count", "Average", "$ Lost", "$ Changes", "Lost Products", "Lost Product Retention", "Concentration Analysis"
         ])
         
         with tab1:
