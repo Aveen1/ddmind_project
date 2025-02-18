@@ -121,8 +121,8 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
             "values_cohort": f"Analyze cohort analysis for {selected_value}, identifying customer behavior trends and patterns.",
             "count_cohort": f"Analyze cohort count distribution for {selected_value}, identifying customer retention and acquisition trends.",
             "average_cohort": f"Analyze cohort average {selected_value} trends, comparing across cohorts and identifying growth patterns.",
-            "dollar_lost_cohort": f"Analyze cohort analysis for dollar lost, identifying customer behavior trends and patterns.",
-            "dollar_changes_cohort": f"Analyze cohort analysis for dollar changes, identifying customer behavior trends and patterns.",
+            "dollar_decreases_cohort": f"Analyze cohort analysis for dollar decrease, identifying customer behavior trends and patterns.",
+            "dollar_increases_cohort": f"Analyze cohort analysis for dollar increase, identifying customer behavior trends and patterns.",
             "lost_products_cohort": f"Analyze cohort analysis for lost products, identifying customer behavior trends and patterns.",
             "product_retention_cohort": f"Analyze product retention rates for {selected_value}, identifying customer loyalty trends and implications."
 
