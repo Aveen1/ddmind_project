@@ -103,15 +103,20 @@ def main():
                 
                 if selected_filter and selected_filter != 'Select...':
                     unique_values = sorted(df_cleaned[selected_filter].dropna().unique())
-                    specific_filter_options = ['All'] + list(unique_values)
-                    selected_subfilter = st.selectbox(
-                        f"Select {selected_filter}", 
-                        options=specific_filter_options,
-                        index=0,
+                    
+                    selected_subfilters = st.multiselect(
+                        f"Select {selected_filter}(s)",
+                        options=unique_values,
+                        default=None,  # No default selection
                         key='subfilter'
                     )
+                    
+                    if st.checkbox("Select All", key="select_all_subfilters"):
+                        selected_subfilters = list(unique_values)
+                    
                 else:
-                    selected_subfilter = st.selectbox(
+                    selected_subfilters = []
+                    st.selectbox(
                         "Select Specific Filter",
                         ['Select Topic First'],
                         disabled=True,
@@ -134,7 +139,7 @@ def main():
             all_selected = (
                 selected_analysis != 'Select...' and
                 selected_filter != 'Select...' and
-                selected_subfilter != 'Select...' and
+                len(selected_subfilters) > 0 and  # Now checking if any subfilters are selected
                 selected_value != 'Select...' and
                 selected_time != 'Select...' and
                 selected_date != 'Select...'
@@ -145,10 +150,11 @@ def main():
                 return
 
         if submit_button:
-            if selected_subfilter == 'All':
+            if not selected_subfilters:  # Empty list (nothing selected)
                 df_analysis = df_cleaned
             else:
-                df_analysis = df_cleaned[df_cleaned[selected_filter] == selected_subfilter]
+                # Filter for rows where the value is in the selected list
+                df_analysis = df_cleaned[df_cleaned[selected_filter].isin(selected_subfilters)]
 
             if selected_filter in df_analysis.columns and selected_value in df_analysis.columns:
                 try:
@@ -278,7 +284,7 @@ def main():
             st.download_button(
                 label="Download Analysis Results",
                 data=st.session_state.excel_data,
-                file_name=f"{selected_analysis}_{selected_value}_by_{selected_filter}_{selected_subfilter}_{selected_time}.xlsx",
+                file_name=f"{selected_analysis}_{selected_value}_by_{selected_filter}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
 
