@@ -42,7 +42,7 @@ def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
 
 def main():
     load_custom_css()
-    create_sidebar()
+    #create_sidebar()
     #st.title("DDMind")
 
     if 'analysis_complete' not in st.session_state:
