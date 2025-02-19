@@ -33,6 +33,8 @@ from data_analysis import (
 )
 
 def load_custom_css():
+    st.set_page_config(layout="wide")
+
     st.markdown("""
         <style>
             /* Import Inter font from Google Fonts */
