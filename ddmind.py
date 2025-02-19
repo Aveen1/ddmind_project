@@ -19,7 +19,7 @@ from data_processing import (create_date_column, process_time_period, to_excel_d
 from data_analysis import ( calculate_growth, calculate_concentration, create_top_n_concentration, create_top_n_table)
 from chart_generation import (create_line_chart, create_bar_chart, create_area_chart,create_heatmap_chart )
 from ai_insights import ( analyze_data_with_langchain, generate_tab_insights, generate_recommendations_from_file )
-from tabs import (create_analysis_tabs,create_sidebar,create_snowball_tab, create_bridge_tab, add_total_row)
+from tabs import (create_analysis_tabs,create_sidebar,load_custom_css,create_snowball_tab, create_bridge_tab, add_total_row)
 
 #Set OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -41,9 +41,9 @@ def to_excel_download_link(analysis_dfs, filename="analysis_result.xlsx"):
 
 
 def main():
-
+    load_custom_css()
     create_sidebar()
-    st.title("DDMind")
+    #st.title("DDMind")
 
     if 'analysis_complete' not in st.session_state:
         st.session_state.analysis_complete = False
