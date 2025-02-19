@@ -150,10 +150,10 @@ def main():
                 return
 
         if submit_button:
-            if not selected_subfilters:  # Empty list (nothing selected)
+            if not selected_subfilters:  
                 df_analysis = df_cleaned
             else:
-                # Filter for rows where the value is in the selected list
+                
                 df_analysis = df_cleaned[df_cleaned[selected_filter].isin(selected_subfilters)]
 
             if selected_filter in df_analysis.columns and selected_value in df_analysis.columns:
