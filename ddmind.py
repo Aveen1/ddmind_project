@@ -107,7 +107,7 @@ def main():
                     selected_subfilters = st.multiselect(
                         f"Select {selected_filter}(s)",
                         options=unique_values,
-                        default=None,  # No default selection
+                        default=None, 
                         key='subfilter'
                     )
                     
@@ -146,7 +146,7 @@ def main():
             )
 
             if submit_button and not all_selected:
-                st.error("Please select all options before running the analysis.")
+                st.warning("Please select all options before running the analysis.")
                 return
 
         if submit_button:
