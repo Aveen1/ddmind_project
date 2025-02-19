@@ -34,7 +34,6 @@ from data_analysis import (
 
 def load_custom_css():
     st.set_page_config(layout="wide")
-
     st.markdown("""
         <style>
             /* Import Inter font from Google Fonts */
@@ -49,8 +48,14 @@ def load_custom_css():
             .stMarkdown, .stButton, .stSelectbox, .stTextInput {
                 font-family: 'Inter', sans-serif;
             }
+            
+            /* Hide Streamlit UI elements */
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
         </style>
     """, unsafe_allow_html=True)
+
 
 
 def create_sidebar():
