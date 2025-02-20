@@ -503,6 +503,10 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
             metrics_insights = generate_tab_insights(metrics_df, "dollar_retention", selected_value, selected_time)
             st.write(metrics_insights)
 
+
+
+
+
 def create_metrics_tab(value_df, selected_value, selected_time):
     """Creates and populates the Metrics Analysis tab with retention and revenue metrics"""
     st.write(f"Metrics Analysis of {selected_value}")
