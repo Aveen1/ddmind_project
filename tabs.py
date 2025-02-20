@@ -673,7 +673,7 @@ def create_values_cohort_tab(value_df, selected_value, selected_time):
                     period_number = years.index(year) - years.index(start_year) + 1
                     row_data[year] = f"{current_value:,.2f} ({period_number})"
                 else:
-                    row_data[year] = " "
+                    row_data[year] = ""
             
             cohort_data.append(row_data)
 
