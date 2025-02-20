@@ -22,7 +22,7 @@ from ai_insights import ( analyze_data_with_langchain, generate_tab_insights, ge
 from tabs import (create_analysis_tabs,create_sidebar,load_custom_css,create_snowball_tab, create_bridge_tab, add_total_row)
 
 #Set OpenAI API key
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 def num_tokens_from_string(string: str) -> int:
