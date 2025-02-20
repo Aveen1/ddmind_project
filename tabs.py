@@ -49,6 +49,32 @@ def load_custom_css():
                 font-family: 'Inter', sans-serif;
             }
             
+            /* Fix table cell styling */
+            .dataframe td, .dataframe th {
+                white-space: nowrap !important;
+                text-align: right !important;
+                padding: 8px 16px !important;     /* Increased horizontal padding */
+                min-width: 100px !important;      /* Minimum width for cells */
+                max-width: none !important;       /* Remove max-width constraint */
+                width: auto !important;           /* Let content determine width */
+                overflow: visible !important;
+                text-overflow: unset !important;
+            }
+            
+            /* Table container styling */
+            .dataframe {
+                overflow-x: auto !important;
+                width: 100% !important;
+                display: block !important;
+                margin: 0 !important;
+            }
+            
+            /* Ensure table takes full width */
+            .stTable {
+                width: 100% !important;
+                max-width: none !important;
+            }
+            
             /* Hide Streamlit UI elements */
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
@@ -503,10 +529,6 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
             metrics_insights = generate_tab_insights(metrics_df, "dollar_retention", selected_value, selected_time)
             st.write(metrics_insights)
 
-
-
-
-
 def create_metrics_tab(value_df, selected_value, selected_time):
     """Creates and populates the Metrics Analysis tab with retention and revenue metrics"""
     st.write(f"Metrics Analysis of {selected_value}")
@@ -651,7 +673,7 @@ def create_values_cohort_tab(value_df, selected_value, selected_time):
                     period_number = years.index(year) - years.index(start_year) + 1
                     row_data[year] = f"{current_value:,.2f} ({period_number})"
                 else:
-                    row_data[year] = ""
+                    row_data[year] = " "
             
             cohort_data.append(row_data)
 
@@ -843,8 +865,6 @@ def create_average_cohort_tab(value_df, selected_value, selected_time):
             cohort_insights = generate_tab_insights(numeric_cohort_df, "average_cohort", selected_value, selected_time)
             st.write(cohort_insights)
 
-
-
 def create_lost_dollars_cohort_tab(value_df, selected_value, selected_time):
     """Creates and populates the Lost Dollars Cohort Analysis tab"""
     st.write("#### Lost Dollar Value Analysis by Cohort")
@@ -914,7 +934,6 @@ def create_lost_dollars_cohort_tab(value_df, selected_value, selected_time):
         with st.spinner("Generating cohort insights..."):
             cohort_insights = generate_tab_insights(numeric_lost_df, "lost_dollars_cohort", selected_value, selected_time)
             st.write(cohort_insights)
-
 
 def create_dollar_decreases_cohort_tab(value_df, selected_value, selected_time):
     """Creates and populates the Dollar Decrease Cohort Analysis tab"""

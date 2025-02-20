@@ -7,7 +7,7 @@ import pandas as pd
 import os
 import openai
 import json
-from io import BytesIO
+from io import BytesIO, StringIO
 from datetime import datetime
 import numpy as np
 import plotly.express as px
@@ -22,7 +22,48 @@ from ai_insights import ( analyze_data_with_langchain, generate_tab_insights, ge
 from tabs import (create_analysis_tabs,create_sidebar,load_custom_css,create_snowball_tab, create_bridge_tab, add_total_row)
 
 #Set OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
+def analyze_dataset_question(df, question):
+    """Function to analyze user questions about the dataset using GPT-4"""
+    try:
+        #Convert dataframe info to string using StringIO
+        buffer = StringIO()
+        df.info(buf=buffer)
+        df_info = buffer.getvalue()
+        
+        df_stats = f"\nDataset Statistics:\n{df.describe().to_string()}\n"
+        df_head = f"First few rows:\n{df.head().to_string()}\n"
+        
+        prompt = f"""Given the following dataset information:
+
+{df_info}
+
+{df_stats}
+
+{df_head}
+
+Question: {question}
+
+Please analyze this data and provide a clear, concise answer. If you need to perform any calculations, explain them briefly."""
+
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are an expert data analyst. Provide clear, accurate answers based on the dataset provided."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error analyzing question: {str(e)}"
+
+
+
 
 def num_tokens_from_string(string: str) -> int:
     """Returns the number of tokens in a text string."""
@@ -287,6 +328,22 @@ def main():
                 file_name=f"{selected_analysis}_{selected_value}_by_{selected_filter}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
+
+            #Add chat box for dataset questions
+            st.write("### Questions on the Dataset?")
+            user_question = st.text_input("Ask a question about your data:", key="dataset_question")
+            
+            if user_question:
+                with st.spinner("Analyzing your question..."):
+                    answer = analyze_dataset_question(st.session_state.df_cleaned, user_question)
+                    st.write("#### Answer:")
+                    st.write(answer)
+                    
+            
+
+
+
+
 
 if __name__ == "__main__":
     main()
