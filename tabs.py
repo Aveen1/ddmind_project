@@ -115,7 +115,7 @@ def create_sidebar():
 
 def create_value_tab(value_df, selected_value, selected_filter):
     """Creates and populates the Value Analysis tab"""
-    st.write(f"Value Analysis of {selected_value}")
+    st.write(f"#### Value Analysis of {selected_value}")
     st.write(add_total_row(value_df))
     st.plotly_chart(create_line_chart(value_df, f"Value Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(value_df, f"Value Distribution of {selected_value}"))
@@ -126,7 +126,7 @@ def create_value_tab(value_df, selected_value, selected_filter):
 
 def create_total_sum_tab(total_sum_df, selected_value, selected_filter):
     """Creates and populates the Total Sum Analysis tab"""
-    st.write(f"Total Sum Analysis of {selected_value}")
+    st.write(f"#### Total Sum Analysis of {selected_value}")
     st.write(total_sum_df)
     st.plotly_chart(create_line_chart(total_sum_df, f"Total Sum Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(total_sum_df, f"Total Sum Distribution of {selected_value}"))
@@ -137,7 +137,7 @@ def create_total_sum_tab(total_sum_df, selected_value, selected_filter):
 
 def create_percentage_tab(pct_df, selected_value, selected_filter):
     """Creates and populates the Percentage Distribution tab"""
-    st.write(f"Percentage Distribution of {selected_value}")
+    st.write(f"#### Percentage Distribution of {selected_value}")
     pct_df = (add_total_row(pct_df.round(2)).applymap(lambda x: f"{x}%"))
     st.write(pct_df)
     st.plotly_chart(create_area_chart(pct_df, f"Percentage Distribution of {selected_value} Over Time"))
@@ -149,7 +149,7 @@ def create_percentage_tab(pct_df, selected_value, selected_filter):
 
 def create_average_tab(avg_df, selected_value, selected_filter):
     """Creates and populates the Average Analysis tab"""
-    st.write(f"Average Analysis of {selected_value}")
+    st.write(f"#### Average Analysis of {selected_value}")
     avg_df = (add_total_row(avg_df.round(2)))
     st.write(avg_df)
     st.plotly_chart(create_line_chart(avg_df, f"Average Trend of {selected_value}"))
@@ -176,7 +176,7 @@ def create_growth_tab(growth_df, selected_value, selected_filter):
         return f"{x:.2f}%" if x != 0 else ""
     
     formatted_df = result_df.applymap(format_percentage)
-    st.write(f"Year-over-Year Growth of {selected_value} (%)")
+    st.write(f"#### Year-over-Year Growth of {selected_value} (%)")
     st.write(formatted_df)
     st.plotly_chart(create_bar_chart(growth_df, f"Growth Rate by Category"))
     fig_heatmap = px.imshow(
@@ -199,7 +199,7 @@ def create_growth_tab(growth_df, selected_value, selected_filter):
 
 def create_count_tab(count_df, selected_value, selected_filter):
     """Creates and populates the Count Analysis tab"""
-    st.write(f"Count Analysis of {selected_value}")
+    st.write(f"#### Count Analysis of {selected_value}")
     st.write(add_total_row(count_df))
     st.plotly_chart(create_line_chart(count_df, f"Count Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(count_df, f"Count Distribution by Category"))
@@ -213,7 +213,7 @@ def create_concentration_tab(concentration_df, value_df, selected_value, selecte
     subtab1, subtab2 = st.tabs(["General Concentration", "Top Customers"])
     
     with subtab1:
-        st.write(f"Concentration Analysis of {selected_value} (%)")
+        st.write(f"#### Concentration Analysis of {selected_value} (%)")
         st.write(add_total_row(concentration_df.round(2)).applymap(lambda x: f"{x}%"))
         st.plotly_chart(create_area_chart(concentration_df, f"Concentration Over Time"))
         
@@ -244,12 +244,12 @@ def create_concentration_tab(concentration_df, value_df, selected_value, selecte
 
 def create_top_customers_subtab(value_df):
     """Creates and populates the Top Customers subtab within Concentration Analysis"""
-    st.write("### Top Customers Concentration Analysis")
+    st.write("#### Top Customers Concentration Analysis")
     
     top_n_results = create_top_n_concentration(value_df)
     summary_df = create_top_n_table(top_n_results)
     
-    st.write("### Summary of Top Customer Concentration")
+    st.write("##### Summary of Top Customer Concentration")
     st.write(summary_df)
     
     fig_top_n = px.bar(
@@ -300,7 +300,7 @@ def create_bridge_tab(value_df, selected_value, selected_filter):
 
 def create_snowball_tab(value_df, selected_value, selected_time):
     """Creates and populates the Snowball Analysis tab with customer movement metrics"""
-    st.write(f"Snowball Analysis of {selected_value}")
+    st.write(f"#### Snowball Analysis of {selected_value}")
     
     #Calculate customer movement metrics for each period
     periods = sorted(value_df.columns)
@@ -408,7 +408,7 @@ def create_snowball_tab(value_df, selected_value, selected_time):
 
 def create_dollar_retention_tab(value_df, selected_value, selected_time):
     """Creates and populates the Dollar Retention Analysis tab with revenue movement metrics"""
-    st.write(f"Dollar Retention Analysis of {selected_value}")
+    st.write(f"#### Dollar Retention Analysis of {selected_value}")
     
     # Calculate revenue movement metrics for each period
     periods = sorted(value_df.columns)
@@ -533,7 +533,7 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
 
 def create_metrics_tab(value_df, selected_value, selected_time):
     """Creates and populates the Metrics Analysis tab with retention and revenue metrics"""
-    st.write(f"Metrics Analysis of {selected_value}")
+    st.write(f"#### Metrics Analysis of {selected_value}")
     
     #Initialize metrics DataFrame with all periods
     periods = sorted(value_df.columns)
