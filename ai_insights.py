@@ -103,31 +103,261 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
         chat = ChatOpenAI(model="gpt-4o", temperature=0)
         
         prompts = {
-            #Segmentation insights
-            "value": f"Analyze {selected_value} values across {selected_filter} categories, identifying top performers, trends, and patterns.",
-            "total_sum": f"Analyze total sum trends for {selected_value}, describing overall trend and growth rate.",
-            "percentage": f"Analyze percentage distribution of {selected_value}, identifying dominant categories and distribution shifts.",
-            "average": f"Analyze average {selected_value} trends, comparing across categories and identifying outliers.",
-            "growth": f"Analyze growth patterns in {selected_value}, identifying highest growth rates and patterns.",
-            "count": f"Analyze count distribution of {selected_value}, identifying most frequent categories and patterns.",
-            "concentration": f"Analyze concentration of {selected_value}, identifying concentrated areas and changes.",
-            
-            #Retention insights
-            "snowball": f"Analyze snowball effect of {selected_value}, identifying exponential growth patterns and implications.",
-            "dollar_retention": f"Analyze dollar retention rates for {selected_value}, identifying customer loyalty trends and implications.",
-            "metrics": f"Analyze key metrics for {selected_value}, identifying performance trends and patterns.",
+                    #Segmentation insights
+                    "value": """
+                Perform a detailed analysis of {selected_value} across {selected_filter} categories:
+                1. Identify top 3-5 performing categories and their contribution to total
+                2. Detect seasonal patterns and year-over-year trends
+                3. Compare performance across different segments
+                4. Calculate growth rates for each category
+                5. Highlight significant deviations from historical patterns
 
-            #Cohort insights
-            "values_cohort": f"Analyze cohort analysis for {selected_value}, identifying customer behavior trends and patterns.",
-            "count_cohort": f"Analyze cohort count distribution for {selected_value}, identifying customer retention and acquisition trends.",
-            "average_cohort": f"Analyze cohort average {selected_value} trends, comparing across cohorts and identifying growth patterns.",
-            "lost_dollars_cohort": f"Analyze cohort analysis for lost dollars, identifying customer behavior trends and patterns.",
-            "dollar_decreases_cohort": f"Analyze cohort analysis for dollar decrease, identifying customer behavior trends and patterns.",
-            "dollar_increases_cohort": f"Analyze cohort analysis for dollar increase, identifying customer behavior trends and patterns.",
-            "lost_cohort": f"Analyze cohort analysis for lost products, identifying customer behavior trends and patterns.",
-            "lost_retention_cohort": f"Analyze product retention rates for {selected_value}, identifying customer loyalty trends and implications."
+                Example: For Monthly Revenue across Customer Segments:
+                - Enterprise segment leads with 45 percent of total revenue
+                - SMB segment shows 20 percent YoY growth
+                - Seasonal peaks in Q4 across all segments
+                    """,
 
-        }
+                    "total_sum": """
+                Analyze total sum trends for {selected_value} focusing on:
+                1. Calculate overall growth rate (CAGR) and period-over-period changes
+                2. Identify peak periods and their drivers
+                3. Break down contributions by segment/category
+                4. Compare against industry benchmarks
+                5. Project future trends based on historical patterns
+
+                Example: Total Revenue Sum Analysis:
+                - 25 percent CAGR over past 3 years
+                - Q4 represents 40 percent of annual total
+                - Top 3 segments contribute 80 percent of total
+                    """,
+
+                    "percentage": """
+                Analyze percentage distribution of {selected_value} examining:
+                1. Calculate relative share for each category
+                2. Track distribution changes over time
+                3. Identify categories gaining/losing share
+                4. Measure concentration and diversity metrics
+                5. Compare against target distributions
+
+                Example: Revenue Distribution Analysis:
+                - Product A share increased from 20 percent to 35 percent
+                - Top 5 categories represent 85 percent of total
+                - New categories growing at 3x market rate
+                    """,
+
+                    "average": """
+                Analyze average {selected_value} trends with focus on:
+                1. Calculate mean values across categories
+                2. Identify standard deviations and outliers
+                3. Compare averages across time periods
+                4. Break down by segment/category
+                5. Highlight significant variations
+
+                Example: Average Order Value Analysis:
+                - Mean order value increased 15 percent YoY
+                - Enterprise segment 2.5x above average
+                - Significant variation across regions
+                    """,
+
+                    "growth": """
+                Analyze growth patterns in {selected_value} considering:
+                1. Calculate growth rates by category/segment
+                2. Identify highest and lowest growth areas
+                3. Compare against historical growth rates
+                4. Detect acceleration/deceleration patterns
+                5. Project future growth trajectories
+
+                Example: Growth Rate Analysis:
+                - Overall growth rate of 35 percent YoY
+                - New products growing 2x faster than mature
+                - Growth acceleration in emerging markets
+                    """,
+
+                    "count": """
+                Analyze count distribution of {selected_value} examining:
+                1. Calculate frequency distributions
+                2. Identify most/least common categories
+                3. Track count changes over time
+                4. Compare against expected distributions
+                5. Highlight unusual patterns
+
+                Example: Transaction Count Analysis:
+                - 50 percent increase in daily transaction volume
+                - Peak activity during morning hours
+                - Weekend counts 30 percent lower than weekdays
+                    """,
+
+                    "concentration": """
+                Analyze concentration of {selected_value} focusing on:
+                1. Calculate concentration ratios
+                2. Identify high-density areas/segments
+                3. Track concentration changes over time
+                4. Assess risk of concentration
+                5. Compare against desired distribution
+
+                Example: Customer Concentration Analysis:
+                - Top 10 customers represent 40 percent of revenue
+                - Concentration decreased 5 percent YoY
+                - Geographic concentration in three regions
+                    """,
+
+                    #Retention insights
+                    "snowball": """
+                Analyze snowball effect of {selected_value} examining:
+                1. Identify compound growth patterns
+                2. Calculate network effects metrics
+                3. Track viral coefficient
+                4. Measure expansion rates
+                5. Project future growth potential
+
+                Example: User Growth Analysis:
+                - Viral coefficient of 1.3
+                - Each user brings 2.5 new users annually
+                - 40percent faster growth in referral channels
+                    """,
+
+                    "dollar_retention": """
+                Analyze dollar retention rates for {selected_value} focusing on:
+                1. Calculate gross and net dollar retention
+                2. Break down by customer segment
+                3. Track changes in retention rates
+                4. Identify expansion opportunities
+                5. Compare against industry benchmarks
+
+                Example: Dollar Retention Analysis:
+                - 120 percent net dollar retention
+                - Enterprise segment at 135 percent NDR
+                - 25 percent expansion in existing accounts
+                    """,
+
+                    "metrics": """
+                Analyze key metrics for {selected_value} examining:
+                1. Track core KPI performance
+                2. Compare against targets
+                3. Identify leading indicators
+                4. Calculate correlation between metrics
+                5. Highlight areas needing attention
+
+                Example: Key Metrics Analysis:
+                - CAC decreased 15 percent while LTV increased 20 percent
+                - Engagement metrics up 30 percent YoY
+                - Strong correlation between usage and retention
+                    """,
+
+                    #Cohort insights
+                    "values_cohort": """
+                Analyze cohort behavior for {selected_value} focusing on:
+                1. Compare cohort performance over time
+                2. Calculate cohort-specific metrics
+                3. Identify best/worst performing cohorts
+                4. Track cohort maturation patterns
+                5. Project lifetime value by cohort
+
+                Example: Value Cohort Analysis:
+                - 2023 Q4 cohort 40 percent stronger than average
+                - Early adoption predicts 2x lifetime value
+                - Cohort quality improving over time
+                    """,
+
+                    "count_cohort": """
+                Analyze cohort count distribution for {selected_value} examining:
+                1. Track cohort size changes
+                2. Calculate retention by cohort size
+                3. Compare acquisition patterns
+                4. Identify optimal cohort size
+                5. Measure cohort stability
+
+                Example: Count Cohort Analysis:
+                - Larger cohorts retain 15 percent better
+                - Optimal cohort size of 500-1000 users
+                - Acquisition efficiency improving by 20 percent
+                    """,
+
+                    "average_cohort": """
+                Analyze cohort averages for {selected_value} focusing on:
+                1. Calculate mean values by cohort
+                2. Track average value changes over time
+                3. Compare cohort performance
+                4. Identify high-value cohorts
+                5. Project future cohort value
+
+                Example: Average Cohort Analysis:
+                - Recent cohorts show 25 percent higher average value
+                - Value maturation occurs in months 3-6
+                - Consistent growth across cohorts
+                    """,
+
+                    "lost_dollars_cohort": """
+                Analyze lost revenue patterns in {selected_value} examining:
+                1. Calculate churn impact by cohort
+                2. Identify high-risk periods
+                3. Track recovery effectiveness
+                4. Compare loss patterns across segments
+                5. Recommend prevention strategies
+
+                Example: Lost Dollar Analysis:
+                - 70 percent of losses occur in months 1-3
+                - Recovery rate of 25 percent for at-risk accounts
+                - Proactive engagement reduces losses by 40 percent
+                    """,
+
+                    "dollar_decreases_cohort": """
+                Analyze revenue decrease patterns for {selected_value} focusing on:
+                1. Track magnitude of decreases
+                2. Identify common decrease triggers
+                3. Calculate impact by segment
+                4. Compare against normal variation
+                5. Develop early warning indicators
+
+                Example: Revenue Decrease Analysis:
+                - Average decrease of 15 percent in affected accounts
+                - Usage drops precede 80 percent of decreases
+                - Early intervention success rate of 60 percent
+                    """,
+
+                    "dollar_increases_cohort": """
+                Analyze revenue increase patterns for {selected_value} examining:
+                1. Track expansion patterns
+                2. Identify growth triggers
+                3. Calculate upgrade rates
+                4. Compare against expansion targets
+                5. Develop growth strategies
+
+                Example: Revenue Increase Analysis:
+                - 35 percent of accounts expand within 6 months
+                - Feature adoption drives 70 percent of increases
+                - Proactive outreach yields 2x expansion rate
+                    """,
+
+                    "lost_cohort": """
+                Analyze lost customer patterns for {selected_value} focusing on:
+                1. Calculate churn rates by cohort
+                2. Identify churn predictors
+                3. Track win-back success
+                4. Compare against retention targets
+                5. Develop retention strategies
+
+                Example: Lost Customer Analysis:
+                - Churn rate 20 percent lower in engaged segments
+                - 40 percent of churned customers return within 1 year
+                - Early warning system prevents 30 percent of churn
+                    """,
+
+                    "lost_retention_cohort": """
+                Analyze product retention for {selected_value} examining:
+                1. Calculate product-specific retention
+                2. Identify critical usage periods
+                3. Track feature adoption impact
+                4. Compare across product tiers
+                5. Develop engagement strategies
+
+                Example: Product Retention Analysis:
+                - 85 percent retention in premium tier
+                - Feature adoption drives 2x retention
+                - First 30 days critical for long-term retention
+                    """
+                }
         
         prompt = f"{prompts[analysis_type.lower()]} Data: {df_preview}"
         

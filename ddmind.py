@@ -207,8 +207,10 @@ def main():
                         count_df, 
                         concentration_df,
                         selected_value,
+                        selected_time,
                         selected_filter,
-                        selected_analysis  
+                        selected_analysis
+                        
                     )
 
                     

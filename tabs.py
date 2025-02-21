@@ -331,7 +331,7 @@ def create_snowball_tab(value_df, selected_value, selected_time):
             prev_period = periods[i-1]
             prev_active = set(value_df[value_df[prev_period] > 0].index)
             
-            # Calculate metrics
+            #Calculate metrics
             beginning_balance = len(prev_active)
             new_customers = len(current_active - prev_active)
             lost_customers = len(prev_active - current_active)
@@ -410,11 +410,11 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
     """Creates and populates the Dollar Retention Analysis tab with revenue movement metrics"""
     st.write(f"Dollar Retention Analysis of {selected_value}")
     
-    #Calculate revenue movement metrics for each period
+    # Calculate revenue movement metrics for each period
     periods = sorted(value_df.columns)
     metrics_df = pd.DataFrame(columns=['Metric'] + periods)
     
-    #Initialize metrics tracking
+    # Initialize metrics tracking
     metrics = {
         'Beginning Balance': [],
         'New Revenue': [],
@@ -426,21 +426,23 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
     
     for i, period in enumerate(periods):
         if i == 0:
-            #First period
+            #First period - only use values for the selected filter
             current_values = value_df[period]
-            metrics['Beginning Balance'].append(current_values.sum())
+            filtered_sum = current_values.sum()  #This already respects the filter since value_df is filtered
+            
+            metrics['Beginning Balance'].append(filtered_sum)
             metrics['New Revenue'].append(0)
             metrics['Revenue Increases'].append(0)
             metrics['Lost Revenue'].append(0)
             metrics['Decreases'].append(0)
-            metrics['Ending Balance'].append(current_values.sum())
+            metrics['Ending Balance'].append(filtered_sum)
         else:
             prev_period = periods[i-1]
             current_values = value_df[period]
             prev_values = value_df[prev_period]
             
-            #Calculate beginning balance
-            beginning_balance = prev_values.sum()
+            #Calculate beginning balance - only for the filtered data
+            beginning_balance = prev_values[prev_values > 0].sum()
             
             #Calculate new revenue (from customers with 0 revenue in previous period)
             new_revenue = current_values[(prev_values == 0) & (current_values > 0)].sum()
@@ -867,7 +869,7 @@ def create_average_cohort_tab(value_df, selected_value, selected_time):
 
 def create_lost_dollars_cohort_tab(value_df, selected_value, selected_time):
     """Creates and populates the Lost Dollars Cohort Analysis tab"""
-    st.write("#### Lost Dollar Value Analysis by Cohort")
+    st.write("#### Lost Dollar Value Analysis by Cohort ")
     periods = sorted(value_df.columns.unique())
 
     first_periods = {}
@@ -1088,9 +1090,9 @@ def create_dollar_increases_cohort_tab(value_df, selected_value, selected_time):
             cohort_insights = generate_tab_insights(numeric_increase_df, "dollar_increases_cohort", selected_value, selected_time)
             st.write(cohort_insights)
 
-def create_lost_cohort_tab(value_df, selected_value, selected_time):
+def create_lost_cohort_tab(value_df, selected_value,selected_filter, selected_time):
     """Creates and populates the Lost Cohort Analysis tab"""
-    st.write("#### Lost Analysis by Cohort")
+    st.write(f"#### Lost {selected_filter} Analysis by Cohort")
 
     #Get all unique periods as columns
     periods = sorted(value_df.columns.unique())
@@ -1135,7 +1137,7 @@ def create_lost_cohort_tab(value_df, selected_value, selected_time):
     cohort_df = pd.DataFrame(cohort_data).set_index('First Time Period')
 
     #Display the cohort table
-    st.write("##### Lost by Cohort")
+    st.write(f"##### Lost {selected_filter} by Cohort")
     st.write(cohort_df)
 
     #Create heatmap visualization
@@ -1149,21 +1151,21 @@ def create_lost_cohort_tab(value_df, selected_value, selected_time):
 
     fig = px.imshow(
         numeric_cohort_df,
-        title="Lost Heatmap",
+        title=f"Lost {selected_filter} Heatmap",
         labels=dict(x="Time Period", y="First Time Period", color="Lost"),
         color_continuous_scale="Reds"
     )
     st.plotly_chart(fig)
 
     #Generate insights
-    with st.expander("📊 Lost Cohort Analysis Insights", expanded=True):
+    with st.expander(f"📊 Lost {selected_filter} Cohort Analysis Insights", expanded=True):
         with st.spinner("Generating cohort insights..."):
             cohort_insights = generate_tab_insights(numeric_cohort_df, "lost_cohort", selected_value, selected_time)
             st.write(cohort_insights)
 
-def create_retention_cohort_tab(value_df, selected_value, selected_time):
+def create_retention_cohort_tab(value_df, selected_value, selected_filter, selected_time):
     """Creates and populates the Retention Cohort Analysis tab"""
-    st.write("#### Lost Retention Analysis by Cohort")
+    st.write(f"#### Lost {selected_filter} Retention Analysis by Cohort")
 
     #Get all unique periods as columns
     periods = sorted(value_df.columns.unique())
@@ -1202,7 +1204,7 @@ def create_retention_cohort_tab(value_df, selected_value, selected_time):
     cohort_df = pd.DataFrame(cohort_data).set_index('First Time Period')
 
     #Display the cohort table
-    st.write("##### Lost Retention Rates by Cohort")
+    st.write(f"##### Lost {selected_filter} Retention Rates by Cohort")
     st.write(cohort_df)
 
     #Create heatmap visualization
@@ -1216,14 +1218,14 @@ def create_retention_cohort_tab(value_df, selected_value, selected_time):
 
     fig = px.imshow(
         numeric_cohort_df,
-        title=" Lost Retention Rate Heatmap",
+        title=f" Lost {selected_filter} Retention Rate Heatmap",
         labels=dict(x="Time Period", y="First Time Period", color="Retention Rate (%)"),
         color_continuous_scale="Viridis"
     )
     st.plotly_chart(fig)
 
     #Generate insights
-    with st.expander("📊 Lost Retention Cohort Analysis Insights", expanded=True):
+    with st.expander(f"📊 Lost {selected_filter} Retention Cohort Analysis Insights", expanded=True):
         with st.spinner("Generating cohort insights..."):
             cohort_insights = generate_tab_insights(numeric_cohort_df, "lost_retention_cohort", selected_value, selected_time)
             st.write(cohort_insights)
@@ -1232,7 +1234,7 @@ def create_retention_cohort_tab(value_df, selected_value, selected_time):
 
 
 
-def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, count_df, concentration_df, selected_value, selected_time, analysis_type):
+def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, count_df, concentration_df, selected_value, selected_time,selected_filter, analysis_type):
     """Creates and manages all analysis tabs based on analysis type"""
     
     if analysis_type == "Retention Analysis":
@@ -1269,7 +1271,7 @@ def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, coun
 
     elif analysis_type == "Cohort Analysis":
         tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8,tab9 = st.tabs([
-            "Values", "Count", "Average", "$ Lost", "$ Decreases", "$ Increases", "Lost", "Lost Retention", "Concentration Analysis"
+            "Values", "Count", "Average", "$ Lost", "$ Decreases", "$ Increases", f"Lost {selected_filter}", f"Lost {selected_filter} Retention", "Concentration Analysis"
         ])
         
         with tab1:
@@ -1285,9 +1287,9 @@ def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, coun
         with tab6:
             create_dollar_increases_cohort_tab(value_df, selected_value, selected_time)
         with tab7:
-            create_lost_cohort_tab(value_df, selected_value, selected_time)
+            create_lost_cohort_tab(value_df, selected_value,selected_filter, selected_time)
         with tab8:
-            create_retention_cohort_tab(value_df, selected_value, selected_time)
+            create_retention_cohort_tab(value_df, selected_value,selected_filter, selected_time)
         with tab9:
             create_concentration_tab(concentration_df, value_df, selected_value, selected_time)
 
@@ -1314,6 +1316,7 @@ def create_analysis_tabs(value_df, total_sum_df, pct_df, avg_df, growth_df, coun
         with tab8:
             create_concentration_tab(concentration_df, value_df, selected_value, selected_time)
 
+    pass
 
 def add_total_row(df):
     #Add a total sum to the end of a DataFrame
