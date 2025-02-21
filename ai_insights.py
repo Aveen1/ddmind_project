@@ -104,7 +104,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
         
         prompts = {
                     #Segmentation insights
-                    "value": """
+                    "value": f"""
                 Perform a detailed analysis of {selected_value} across {selected_filter} categories:
                 1. Identify top 3-5 performing categories and their contribution to total
                 2. Detect seasonal patterns and year-over-year trends
@@ -118,7 +118,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Seasonal peaks in Q4 across all segments
                     """,
 
-                    "total_sum": """
+                    "total_sum": f"""
                 Analyze total sum trends for {selected_value} focusing on:
                 1. Calculate overall growth rate (CAGR) and period-over-period changes
                 2. Identify peak periods and their drivers
@@ -132,7 +132,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Top 3 segments contribute 80 percent of total
                     """,
 
-                    "percentage": """
+                    "percentage": f"""
                 Analyze percentage distribution of {selected_value} examining:
                 1. Calculate relative share for each category
                 2. Track distribution changes over time
@@ -146,7 +146,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - New categories growing at 3x market rate
                     """,
 
-                    "average": """
+                    "average": f"""
                 Analyze average {selected_value} trends with focus on:
                 1. Calculate mean values across categories
                 2. Identify standard deviations and outliers
@@ -160,7 +160,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Significant variation across regions
                     """,
 
-                    "growth": """
+                    "growth": f"""
                 Analyze growth patterns in {selected_value} considering:
                 1. Calculate growth rates by category/segment
                 2. Identify highest and lowest growth areas
@@ -174,7 +174,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Growth acceleration in emerging markets
                     """,
 
-                    "count": """
+                    "count": f"""
                 Analyze count distribution of {selected_value} examining:
                 1. Calculate frequency distributions
                 2. Identify most/least common categories
@@ -188,7 +188,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Weekend counts 30 percent lower than weekdays
                     """,
 
-                    "concentration": """
+                    "concentration": f"""
                 Analyze concentration of {selected_value} focusing on:
                 1. Calculate concentration ratios
                 2. Identify high-density areas/segments
@@ -203,7 +203,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                     """,
 
                     #Retention insights
-                    "snowball": """
+                    "snowball": f"""
                 Analyze snowball effect of {selected_value} examining:
                 1. Identify compound growth patterns
                 2. Calculate network effects metrics
@@ -217,7 +217,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - 40percent faster growth in referral channels
                     """,
 
-                    "dollar_retention": """
+                    "dollar_retention": f"""
                 Analyze dollar retention rates for {selected_value} focusing on:
                 1. Calculate gross and net dollar retention
                 2. Break down by customer segment
@@ -231,7 +231,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - 25 percent expansion in existing accounts
                     """,
 
-                    "metrics": """
+                    "metrics": f"""
                 Analyze key metrics for {selected_value} examining:
                 1. Track core KPI performance
                 2. Compare against targets
@@ -246,7 +246,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                     """,
 
                     #Cohort insights
-                    "values_cohort": """
+                    "values_cohort": f"""
                 Analyze cohort behavior for {selected_value} focusing on:
                 1. Compare cohort performance over time
                 2. Calculate cohort-specific metrics
@@ -260,7 +260,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Cohort quality improving over time
                     """,
 
-                    "count_cohort": """
+                    "count_cohort": f"""
                 Analyze cohort count distribution for {selected_value} examining:
                 1. Track cohort size changes
                 2. Calculate retention by cohort size
@@ -274,7 +274,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Acquisition efficiency improving by 20 percent
                     """,
 
-                    "average_cohort": """
+                    "average_cohort": f"""
                 Analyze cohort averages for {selected_value} focusing on:
                 1. Calculate mean values by cohort
                 2. Track average value changes over time
@@ -288,7 +288,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Consistent growth across cohorts
                     """,
 
-                    "lost_dollars_cohort": """
+                    "lost_dollars_cohort": f"""
                 Analyze lost revenue patterns in {selected_value} examining:
                 1. Calculate churn impact by cohort
                 2. Identify high-risk periods
@@ -302,7 +302,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Proactive engagement reduces losses by 40 percent
                     """,
 
-                    "dollar_decreases_cohort": """
+                    "dollar_decreases_cohort": f"""
                 Analyze revenue decrease patterns for {selected_value} focusing on:
                 1. Track magnitude of decreases
                 2. Identify common decrease triggers
@@ -316,7 +316,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Early intervention success rate of 60 percent
                     """,
 
-                    "dollar_increases_cohort": """
+                    "dollar_increases_cohort": f"""
                 Analyze revenue increase patterns for {selected_value} examining:
                 1. Track expansion patterns
                 2. Identify growth triggers
@@ -330,7 +330,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Proactive outreach yields 2x expansion rate
                     """,
 
-                    "lost_cohort": """
+                    "lost_cohort": f"""
                 Analyze lost customer patterns for {selected_value} focusing on:
                 1. Calculate churn rates by cohort
                 2. Identify churn predictors
@@ -344,7 +344,7 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Early warning system prevents 30 percent of churn
                     """,
 
-                    "lost_retention_cohort": """
+                    "lost_retention_cohort": f"""
                 Analyze product retention for {selected_value} examining:
                 1. Calculate product-specific retention
                 2. Identify critical usage periods
