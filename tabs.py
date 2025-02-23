@@ -294,205 +294,225 @@ def create_top_customers_subtab(value_df):
 
 
 def create_bridge_tab(value_df, selected_value, selected_time):
-    """Creates and populates the Bridge Analysis tab"""
+    """Creates and populates the Bridge Analysis tab with consolidated view"""
     st.write(f"#### Bridge Analysis - {selected_time}")
     
-    #Get numeric columns (years/periods) and sort them
+    # Get numeric columns (years/periods) and sort them
     numeric_cols = [col for col in value_df.columns if isinstance(col, (int, float)) or (isinstance(col, str) and col.isdigit())]
     periods = sorted(numeric_cols)
     
-    #Process each period pair
+    # Create consolidated DataFrame for all period pairs
+    bridge_data = []
+    summary_data = []
+    
     for i in range(len(periods)-1):
         start_period = periods[i]
         end_period = periods[i+1]
+        period_key = f"{start_period}-{end_period}"
         
-        st.write(f"##### {start_period} to {end_period}")
-        
-        #Initialize lists for increases and decreases
-        increases = []
-        decreases = []
-        
-        #Find where decreases section starts
+        # Find where decreases section starts
         decrease_idx = value_df.index.get_loc('Decreases') if 'Decreases' in value_df.index else len(value_df)
         
-        #Calculate start total (sum of all non-decrease values)
+        # Calculate start and end totals
         start_total = value_df.iloc[:decrease_idx][start_period].sum()
+        end_total = value_df.iloc[:decrease_idx][end_period].sum()
         
-        #Process increases (rows before 'Decreases')
+        # Add starting total row
+        bridge_data.append({
+            'Period': period_key,
+            'Category': f"Starting Total ({start_period})",
+            'Value': start_total,
+            'Type': 'Total',
+            'Order': 1
+        })
+        
+        # Track increases and decreases for summary
+        total_increases = 0
+        total_decreases = 0
+        
+        # Process increases
         for idx in value_df.index[:decrease_idx]:
             value = value_df.loc[idx, start_period]
             if pd.notnull(value) and value != 0:
-                increases.append((idx, value))
+                bridge_data.append({
+                    'Period': period_key,
+                    'Category': idx,
+                    'Value': value,
+                    'Type': 'Increase',
+                    'Order': 2
+                })
+                total_increases += value
         
-        #Process decreases (rows after 'Decreases')
+        # Process decreases
         for idx in value_df.index[decrease_idx+1:]:
             value = value_df.loc[idx, start_period]
             if pd.notnull(value) and value != 0:
-                decreases.append((idx, value))
+                bridge_data.append({
+                    'Period': period_key,
+                    'Category': idx,
+                    'Value': value,
+                    'Type': 'Decrease',
+                    'Order': 3
+                })
+                total_decreases += value
         
-        #Sort by absolute value
-        increases.sort(key=lambda x: abs(x[1]), reverse=True)
-        decreases.sort(key=lambda x: abs(x[1]), reverse=True)
+        # Add ending total row
+        bridge_data.append({
+            'Period': period_key,
+            'Category': f"Ending Total ({end_period})",
+            'Value': end_total,
+            'Type': 'Total',
+            'Order': 4
+        })
         
-        #Calculate end total
-        end_total = value_df.iloc[:decrease_idx][end_period].sum()
-        
-        #Create and display the table first
-        table_data = pd.DataFrame(columns=['Category', 'Value', '% of Total'])
-        
-        #Add starting total
-        table_data.loc[len(table_data)] = [
-            f"{start_period} Total",
-            f"{start_total:,.2f}",
-            "100.0%"
-        ]
-        
-        #Add increases
-        for item, value in increases:
-            table_data.loc[len(table_data)] = [
-                item,
-                f"{value:,.2f}",
-                f"{(value/start_total * 100):.1f}%"
-            ]
-            
-        #Add decreases
-        for item, value in decreases:
-            table_data.loc[len(table_data)] = [
-                item,
-                f"{value:,.2f}",
-                f"{(value/start_total * 100):.1f}%"
-            ]
-            
-        #Add ending total
-        table_data.loc[len(table_data)] = [
-            f"{end_period} Total",
-            f"{end_total:,.2f}",
-            f"{(end_total/start_total * 100):.1f}%"
-        ]
-        
-        #Display table
-        st.dataframe(
-            table_data.style
-            .set_properties(**{'text-align': 'left'})
-            .set_table_styles([
-                {'selector': 'th', 'props': [('text-align', 'left')]},
-                {'selector': 'td', 'props': [('text-align', 'left')]}
-            ]),
-            hide_index=True
-        )
-        
-        #Create Plotly waterfall chart
-        fig = go.Figure()
-        
-        #Add starting point
-        fig.add_trace(go.Waterfall(
-            name="Start",
-            orientation="v",
-            measure=["absolute"],
-            x=[f"{start_period} Total"],
-            y=[start_total],
-            connector={"line": {"color": "rgb(63, 63, 63)"}},
-            textposition="outside",
-            text=[f"{start_total:,.2f}"],
-            decreasing={"marker": {"color": "red"}},
-            increasing={"marker": {"color": "green"}},
-            totals={"marker": {"color": "blue"}}
-        ))
-        
-        #Add increases
-        for item, value in increases:
-            if value != 0:
-                fig.add_trace(go.Waterfall(
-                    name=item,
-                    orientation="v",
-                    measure=["relative"],
-                    x=[item],
-                    y=[value],
-                    text=[f"{value:,.2f}"],
-                    textposition="outside",
-                    connector={"line": {"color": "rgb(63, 63, 63)"}},
-                    increasing={"marker": {"color": "green"}}
-                ))
-        
-        #Add decreases
-        for item, value in decreases:
-            if value != 0:
-                fig.add_trace(go.Waterfall(
-                    name=item,
-                    orientation="v",
-                    measure=["relative"],
-                    x=[item],
-                    y=[value],
-                    text=[f"{value:,.2f}"],
-                    textposition="outside",
-                    connector={"line": {"color": "rgb(63, 63, 63)"}},
-                    decreasing={"marker": {"color": "red"}}
-                ))
-        
-        #Add ending total
-        fig.add_trace(go.Waterfall(
-            name="End",
-            orientation="v",
-            measure=["total"],
-            x=[f"{end_period} Total"],
-            y=[0],
-            text=[f"{end_total:,.2f}"],
-            textposition="outside",
-            connector={"line": {"color": "rgb(63, 63, 63)"}},
-            decreasing={"marker": {"color": "red"}},
-            increasing={"marker": {"color": "green"}},
-            totals={"marker": {"color": "blue"}}
-        ))
-        
-        #Update layout
-        fig.update_layout(
-            title={
-                'text': f"{selected_value} Bridge Analysis {start_period} to {end_period}",
-                'y':0.95,
-                'x':0.5,
-                'xanchor': 'center',
-                'yanchor': 'top'
+        # Add summary rows
+        net_change = end_total - start_total
+        summary_data.extend([
+            {
+                'Period': period_key,
+                'Category': '📊 Net Change',
+                'Value': net_change,
+                'Type': 'Summary',
+                'Order': 5
             },
-            showlegend=False,
-            height=600,
-            waterfallgap=0.2,
-            xaxis={
-                "type": "category",
-                "title": "Components"
+            {
+                'Period': period_key,
+                'Category': '📈 Total Increases',
+                'Value': total_increases,
+                'Type': 'Summary',
+                'Order': 6
             },
-            yaxis={
-                "title": f"{selected_value}",
-                "tickformat": ",.2f"
+            {
+                'Period': period_key,
+                'Category': '📉 Total Decreases',
+                'Value': total_decreases,
+                'Type': 'Summary',
+                'Order': 7
             }
-        )
+        ])
+    
+    # Combine main data and summary data
+    bridge_df = pd.DataFrame(bridge_data + summary_data)
+    
+    # Create DataFrame and pivot
+    pivot_df = bridge_df.pivot_table(
+        index=['Category', 'Type', 'Order'],
+        columns='Period',
+        values='Value',
+        aggfunc='sum'
+    ).sort_values('Order').reset_index()
+    
+    # Calculate percentages relative to starting total for each period
+    for period in pivot_df.columns[3:]:  # Skip Category, Type, and Order columns
+        start_total = pivot_df[pivot_df['Type'] == 'Total'][period].iloc[0]
+        pivot_df[f'{period} %'] = (pivot_df[period] / start_total * 100).round(1)
+    
+    # Reorder columns to alternate value and percentage
+    cols = ['Category', 'Type']
+    for period in pivot_df.columns[3:]:
+        if 'Order' not in period and '%' not in period:
+            cols.extend([period, f'{period} %'])
+    
+    # Format the table
+    display_df = pivot_df[cols].copy()
+    display_df = display_df.drop('Type', axis=1)
+    
+    # Format numeric columns and add styling
+    for col in display_df.columns[1:]:
+        if '%' in col:
+            display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}%" if pd.notnull(x) else '')
+        else:
+            display_df[col] = display_df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else '')
+    
+    # Display table
+    st.dataframe(
+        display_df.style
+        .set_properties(**{'text-align': 'left'})
+        .set_table_styles([
+            {'selector': 'th', 'props': [('text-align', 'left')]},
+            {'selector': 'td', 'props': [('text-align', 'left')]}
+        ]),
+        hide_index=True
+    )
+    
+    # Create consolidated waterfall chart for the first period pair
+    start_period = periods[0]
+    end_period = periods[1]
+    first_period_data = bridge_df[
+        (bridge_df['Period'] == f"{start_period}-{end_period}") & 
+        (bridge_df['Type'] != 'Summary')
+    ]
+    
+    fig = go.Figure()
+    
+    # Add traces based on Type
+    for _, row in first_period_data.iterrows():
+        measure = "absolute" if row['Type'] == 'Total' and row['Category'].startswith('Starting') else \
+                 "total" if row['Type'] == 'Total' and row['Category'].startswith('Ending') else \
+                 "relative"
         
-        #Display the chart
-        st.plotly_chart(fig, use_container_width=True)
+        fig.add_trace(go.Waterfall(
+            name=row['Category'],
+            orientation="v",
+            measure=[measure],
+            x=[row['Category']],
+            y=[row['Value']],
+            text=[f"{row['Value']:,.2f}"],
+            textposition="outside",
+            connector={"line": {"color": "rgb(63, 63, 63)"}},
+            decreasing={"marker": {"color": "red"}},
+            increasing={"marker": {"color": "green"}},
+            totals={"marker": {"color": "blue"}}
+        ))
+    
+    #Update layout
+    fig.update_layout(
+        title={
+            'text': f"{selected_value} Bridge Analysis {start_period} to {end_period}",
+            'y': 0.95,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'
+        },
+        showlegend=False,
+        height=600,
+        waterfallgap=0.2,
+        xaxis={
+            "type": "category",
+            "title": "Components"
+        },
+        yaxis={
+            "title": selected_value,
+            "tickformat": ",.2f"
+        }
+    )
+    
+    # Display the chart
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Display insights for context
+    with st.expander("📊 Analysis Details", expanded=True):
+        first_period = first_period_data.copy()
+        start_total = first_period[first_period['Type'] == 'Total']['Value'].iloc[0]
+        end_total = first_period[first_period['Type'] == 'Total']['Value'].iloc[-1]
+        increases = first_period[first_period['Type'] == 'Increase']['Value'].sum()
+        decreases = first_period[first_period['Type'] == 'Decrease']['Value'].sum()
         
-        #Display insights
-        with st.expander("📊 Bridge Analysis Insights", expanded=True):
-            total_change = end_total - start_total
-            total_increases = sum(value for _, value in increases)
-            total_decreases = sum(value for _, value in decreases)
-            
-            st.write(f"""
-            Key changes from {start_period} to {end_period}:
-            - Starting value: {start_total:,.2f}
-            - Ending value: {end_total:,.2f}
-            - Net change: {total_change:,.2f} ({(total_change/start_total * 100):.1f}%)
-            - Total increases: {total_increases:,.2f}
-            - Total decreases: {total_decreases:,.2f}
-            """)
-            
-            if increases:
-                st.write("\nLargest increases:")
-                for item, value in increases[:3]:
-                    st.write(f"- {item}: {value:,.2f} ({(value/total_increases * 100):.1f}% of total increases)")
-            
-            if decreases:
-                st.write("\nLargest decreases:")
-                for item, value in decreases[:3]:
-                    st.write(f"- {item}: {value:,.2f} ({(value/total_decreases * 100):.1f}% of total decreases)")
+        # Top 3 increases
+        increases_df = first_period[first_period['Type'] == 'Increase'].nlargest(3, 'Value')
+        if not increases_df.empty:
+            st.write("\nLargest increases:")
+            for _, row in increases_df.iterrows():
+                st.write(f"- {row['Category']}: {row['Value']:,.2f} ({(row['Value']/increases * 100):.1f}% of total increases)")
+        
+        # Top 3 decreases
+        decreases_df = first_period[first_period['Type'] == 'Decrease'].nsmallest(3, 'Value')
+        if not decreases_df.empty:
+            st.write("\nLargest decreases:")
+            for _, row in decreases_df.iterrows():
+                st.write(f"- {row['Category']}: {row['Value']:,.2f} ({(row['Value']/decreases * 100):.1f}% of total decreases)")
+
+
 
 
 
