@@ -292,50 +292,40 @@ def create_top_customers_subtab(value_df):
             top_customer_insights = chat(messages)
             st.write(top_customer_insights.content)
 
-
 def create_bridge_tab(value_df, selected_value, selected_time):
     """Creates and populates the Bridge Analysis tab with consolidated view"""
     st.write(f"#### Bridge Analysis - {selected_time}")
     
-    # Get numeric columns (years/periods) and sort them
-    numeric_cols = [col for col in value_df.columns if isinstance(col, (int, float)) or (isinstance(col, str) and col.isdigit())]
-    periods = sorted(numeric_cols)
-    
-    # Create consolidated DataFrame for all period pairs
+    periods = sorted(value_df.columns)    
     bridge_data = []
     summary_data = []
     
     for i in range(len(periods)-1):
         start_period = periods[i]
         end_period = periods[i+1]
-        period_key = f"{start_period}-{end_period}"
+        period_display = f"{start_period} to {end_period}"
         
-        # Find where decreases section starts
         decrease_idx = value_df.index.get_loc('Decreases') if 'Decreases' in value_df.index else len(value_df)
         
-        # Calculate start and end totals
         start_total = value_df.iloc[:decrease_idx][start_period].sum()
         end_total = value_df.iloc[:decrease_idx][end_period].sum()
         
-        # Add starting total row
         bridge_data.append({
-            'Period': period_key,
+            'Period': period_display,
             'Category': f"Starting Total ({start_period})",
             'Value': start_total,
             'Type': 'Total',
             'Order': 1
         })
         
-        # Track increases and decreases for summary
         total_increases = 0
         total_decreases = 0
         
-        # Process increases
         for idx in value_df.index[:decrease_idx]:
             value = value_df.loc[idx, start_period]
             if pd.notnull(value) and value != 0:
                 bridge_data.append({
-                    'Period': period_key,
+                    'Period': period_display,
                     'Category': idx,
                     'Value': value,
                     'Type': 'Increase',
@@ -343,12 +333,11 @@ def create_bridge_tab(value_df, selected_value, selected_time):
                 })
                 total_increases += value
         
-        # Process decreases
         for idx in value_df.index[decrease_idx+1:]:
             value = value_df.loc[idx, start_period]
             if pd.notnull(value) and value != 0:
                 bridge_data.append({
-                    'Period': period_key,
+                    'Period': period_display,
                     'Category': idx,
                     'Value': value,
                     'Type': 'Decrease',
@@ -356,34 +345,32 @@ def create_bridge_tab(value_df, selected_value, selected_time):
                 })
                 total_decreases += value
         
-        # Add ending total row
         bridge_data.append({
-            'Period': period_key,
+            'Period': period_display,
             'Category': f"Ending Total ({end_period})",
             'Value': end_total,
             'Type': 'Total',
             'Order': 4
         })
         
-        # Add summary rows
         net_change = end_total - start_total
         summary_data.extend([
             {
-                'Period': period_key,
+                'Period': period_display,
                 'Category': '📊 Net Change',
                 'Value': net_change,
                 'Type': 'Summary',
                 'Order': 5
             },
             {
-                'Period': period_key,
+                'Period': period_display,
                 'Category': '📈 Total Increases',
                 'Value': total_increases,
                 'Type': 'Summary',
                 'Order': 6
             },
             {
-                'Period': period_key,
+                'Period': period_display,
                 'Category': '📉 Total Decreases',
                 'Value': total_decreases,
                 'Type': 'Summary',
@@ -391,10 +378,8 @@ def create_bridge_tab(value_df, selected_value, selected_time):
             }
         ])
     
-    # Combine main data and summary data
     bridge_df = pd.DataFrame(bridge_data + summary_data)
     
-    # Create DataFrame and pivot
     pivot_df = bridge_df.pivot_table(
         index=['Category', 'Type', 'Order'],
         columns='Period',
@@ -402,53 +387,24 @@ def create_bridge_tab(value_df, selected_value, selected_time):
         aggfunc='sum'
     ).sort_values('Order').reset_index()
     
-    # Calculate percentages relative to starting total for each period
-    for period in pivot_df.columns[3:]:  # Skip Category, Type, and Order columns
-        start_total = pivot_df[pivot_df['Type'] == 'Total'][period].iloc[0]
-        pivot_df[f'{period} %'] = (pivot_df[period] / start_total * 100).round(1)
+    display_df = pivot_df[['Category'] + [col for col in pivot_df.columns if col not in ['Category', 'Type', 'Order']]].copy()
     
-    # Reorder columns to alternate value and percentage
-    cols = ['Category', 'Type']
-    for period in pivot_df.columns[3:]:
-        if 'Order' not in period and '%' not in period:
-            cols.extend([period, f'{period} %'])
-    
-    # Format the table
-    display_df = pivot_df[cols].copy()
-    display_df = display_df.drop('Type', axis=1)
-    
-    # Format numeric columns and add styling
     for col in display_df.columns[1:]:
-        if '%' in col:
-            display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}%" if pd.notnull(x) else '')
-        else:
-            display_df[col] = display_df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else '')
+        display_df[col] = display_df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else '')
     
-    # Display table
-    st.dataframe(
-        display_df.style
-        .set_properties(**{'text-align': 'left'})
-        .set_table_styles([
-            {'selector': 'th', 'props': [('text-align', 'left')]},
-            {'selector': 'td', 'props': [('text-align', 'left')]}
-        ]),
-        hide_index=True
-    )
+    st.dataframe(display_df, hide_index=True)
     
-    # Create consolidated waterfall chart for the first period pair
-    start_period = periods[0]
-    end_period = periods[1]
-    first_period_data = bridge_df[
-        (bridge_df['Period'] == f"{start_period}-{end_period}") & 
+    latest_period = bridge_df['Period'].unique()[-1]
+    latest_period_data = bridge_df[
+        (bridge_df['Period'] == latest_period) & 
         (bridge_df['Type'] != 'Summary')
     ]
     
     fig = go.Figure()
     
-    # Add traces based on Type
-    for _, row in first_period_data.iterrows():
-        measure = "absolute" if row['Type'] == 'Total' and row['Category'].startswith('Starting') else \
-                 "total" if row['Type'] == 'Total' and row['Category'].startswith('Ending') else \
+    for _, row in latest_period_data.iterrows():
+        measure = "absolute" if row['Type'] == 'Total' and 'Starting Total' in row['Category'] else \
+                 "total" if row['Type'] == 'Total' and 'Ending Total' in row['Category'] else \
                  "relative"
         
         fig.add_trace(go.Waterfall(
@@ -465,10 +421,9 @@ def create_bridge_tab(value_df, selected_value, selected_time):
             totals={"marker": {"color": "blue"}}
         ))
     
-    #Update layout
     fig.update_layout(
         title={
-            'text': f"{selected_value} Bridge Analysis {start_period} to {end_period}",
+            'text': f"{selected_value} Bridge Analysis - {latest_period}",
             'y': 0.95,
             'x': 0.5,
             'xanchor': 'center',
@@ -487,38 +442,28 @@ def create_bridge_tab(value_df, selected_value, selected_time):
         }
     )
     
-    # Display the chart
     st.plotly_chart(fig, use_container_width=True)
     
-    # Display insights for context
     with st.expander("📊 Analysis Details", expanded=True):
-        first_period = first_period_data.copy()
-        start_total = first_period[first_period['Type'] == 'Total']['Value'].iloc[0]
-        end_total = first_period[first_period['Type'] == 'Total']['Value'].iloc[-1]
-        increases = first_period[first_period['Type'] == 'Increase']['Value'].sum()
-        decreases = first_period[first_period['Type'] == 'Decrease']['Value'].sum()
+        latest_data = latest_period_data.copy()
+        start_total = latest_data[latest_data['Type'] == 'Total']['Value'].iloc[0]
+        end_total = latest_data[latest_data['Type'] == 'Total']['Value'].iloc[-1]
+        increases = latest_data[latest_data['Type'] == 'Increase']['Value'].sum()
+        decreases = latest_data[latest_data['Type'] == 'Decrease']['Value'].sum()
         
-        # Top 3 increases
-        increases_df = first_period[first_period['Type'] == 'Increase'].nlargest(3, 'Value')
+        #Top 3 increases
+        increases_df = latest_data[latest_data['Type'] == 'Increase'].nlargest(3, 'Value')
         if not increases_df.empty:
             st.write("\nLargest increases:")
             for _, row in increases_df.iterrows():
                 st.write(f"- {row['Category']}: {row['Value']:,.2f} ({(row['Value']/increases * 100):.1f}% of total increases)")
         
-        # Top 3 decreases
-        decreases_df = first_period[first_period['Type'] == 'Decrease'].nsmallest(3, 'Value')
+        #Top 3 decreases
+        decreases_df = latest_data[latest_data['Type'] == 'Decrease'].nsmallest(3, 'Value')
         if not decreases_df.empty:
             st.write("\nLargest decreases:")
             for _, row in decreases_df.iterrows():
                 st.write(f"- {row['Category']}: {row['Value']:,.2f} ({(row['Value']/decreases * 100):.1f}% of total decreases)")
-
-
-
-
-
-
-
-
 
 
 def create_snowball_tab(value_df, selected_value, selected_time):
