@@ -188,6 +188,23 @@ def generate_tab_insights(df, analysis_type, selected_value, selected_filter):
                 - Weekend counts 30 percent lower than weekdays
                     """,
 
+                "bridge": f"""
+                Conduct a comprehensive bridge analysis for {selected_value} focusing on:
+                1. Identify key drivers of change between two periods
+                2. Quantify contributions of individual factors to overall variance
+                3. Highlight positive and negative impacts
+                4. Visualize step-by-step changes through waterfall charts
+                5. Uncover hidden dependencies or correlations
+
+                Example: Revenue Bridge Analysis:
+                - $200K increase due to higher sales volume
+                - $50K decline from price reductions
+                - $30K positive impact from new product launches
+                - Net increase of $220K quarter-over-quarter
+                """,
+
+
+                
                     "concentration": f"""
                 Analyze concentration of {selected_value} focusing on:
                 1. Calculate concentration ratios

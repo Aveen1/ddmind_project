@@ -444,7 +444,7 @@ def create_bridge_tab(value_df, selected_value, selected_time):
     
     st.plotly_chart(fig, use_container_width=True)
     
-    with st.expander("📊 Analysis Details", expanded=True):
+    with st.expander("📊 Bridge Analysis Details", expanded=True):
         latest_data = latest_period_data.copy()
         start_total = latest_data[latest_data['Type'] == 'Total']['Value'].iloc[0]
         end_total = latest_data[latest_data['Type'] == 'Total']['Value'].iloc[-1]
@@ -464,7 +464,10 @@ def create_bridge_tab(value_df, selected_value, selected_time):
             st.write("\nLargest decreases:")
             for _, row in decreases_df.iterrows():
                 st.write(f"- {row['Category']}: {row['Value']:,.2f} ({(row['Value']/decreases * 100):.1f}% of total decreases)")
-
+        
+        with st.spinner("Generating metrics insights..."):
+            bridge_insights = generate_tab_insights(latest_data, "bridge", selected_value, selected_time)
+            st.write(bridge_insights)
 
 def create_snowball_tab(value_df, selected_value, selected_time):
     """Creates and populates the Snowball Analysis tab with customer movement metrics"""
