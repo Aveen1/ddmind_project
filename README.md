@@ -17,8 +17,20 @@ DDMind is a data analysis and visualization tool designed to process and interpr
    cd ddmind_project
 2. **Set up a virtual environment (optional but recommended)**:
    python3 -m venv venv
-   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-3. 
+   source venv/bin/activate  #On Windows, use `venv\Scripts\activate`
+3. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+5. **Usage**:
+   After installation, you can start the application with:
+    ```bash
+    python ddmind.py
+
+
+
+
+
+
 
 
 
