@@ -2,7 +2,13 @@
 
 ## 📊 Overview
 
-**DDMind** is a data analysis and visualization tool designed to process complex datasets and generate insightful visualizations. It includes AI-driven insights, data cleaning processes, and flexible chart generation.
+**DDMind** Dynamic Decision Mind is an Agentic AI Model combining the strengths of probabilistic NLPs to find & understand data paired with deterministic models for finance & investment analyses to generate accurate, deep and trusted deal insights.
+
+- Autonomous, Goal-Oriented AI Agents for Task Execution
+- Combining NLP (Natural Language Processing) with Quantitative Finance Models
+- Tailored for the Investment Sector: Differentiating Data Sources and Trust Levels
+- Advanced Content Understanding: Graphs, Charts, and Tables
+- High Trust via Verification & Feedback Loops for Maximum Accuracy
 
 ## 🚀 Features
 
