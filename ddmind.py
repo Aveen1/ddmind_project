@@ -212,8 +212,6 @@ def main():
                         selected_analysis
                         
                     )
-
-                    
                     if selected_analysis == "Retention Analysis":
                         analysis_dfs = {
                             "Snowball Analysis": add_total_row(value_df),
