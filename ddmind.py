@@ -71,7 +71,8 @@ def main():
             df = create_date_column(df)
             
             st.write("### Extracted Data:")
-            st.write(df)
+            st.dataframe(df, use_container_width=True)
+
             st.session_state.df_cleaned = df.drop_duplicates().fillna(method='ffill').fillna(method='bfill')
 
             with st.spinner("Analyzing data..."):

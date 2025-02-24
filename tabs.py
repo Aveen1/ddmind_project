@@ -32,6 +32,8 @@ from data_analysis import (
     create_top_n_table
 )
 
+
+
 def load_custom_css():
     st.set_page_config(layout="wide")
     st.markdown("""
@@ -49,17 +51,6 @@ def load_custom_css():
                 font-family: 'Inter', sans-serif;
             }
             
-            /* Fix table cell styling */
-            .dataframe td, .dataframe th {
-                white-space: nowrap !important;
-                text-align: right !important;
-                padding: 8px 16px !important;     /* Increased horizontal padding */
-                min-width: 100px !important;      /* Minimum width for cells */
-                max-width: none !important;       /* Remove max-width constraint */
-                width: auto !important;           /* Let content determine width */
-                overflow: visible !important;
-                text-overflow: unset !important;
-            }
             
             /* Table container styling */
             .dataframe {
@@ -67,12 +58,15 @@ def load_custom_css():
                 width: 100% !important;
                 display: block !important;
                 margin: 0 !important;
+                text-align: center !important;
             }
             
             /* Ensure table takes full width */
             .stTable {
                 width: 100% !important;
                 max-width: none !important;
+                text-align: center !important;
+
             }
             
             /* Hide Streamlit UI elements */
@@ -116,7 +110,7 @@ def create_sidebar():
 def create_value_tab(value_df, selected_value, selected_filter):
     """Creates and populates the Value Analysis tab"""
     st.write(f"#### Value Analysis of {selected_value}")
-    st.write(add_total_row(value_df))
+    st.dataframe(add_total_row(value_df), use_container_width=True)
     st.plotly_chart(create_line_chart(value_df, f"Value Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(value_df, f"Value Distribution of {selected_value}"))
     with st.expander("📊 Value Analysis Insights", expanded=True):
@@ -127,7 +121,7 @@ def create_value_tab(value_df, selected_value, selected_filter):
 def create_total_sum_tab(total_sum_df, selected_value, selected_filter):
     """Creates and populates the Total Sum Analysis tab"""
     st.write(f"#### Total Sum Analysis of {selected_value}")
-    st.write(total_sum_df)
+    st.dataframe(total_sum_df, use_container_width=True)
     st.plotly_chart(create_line_chart(total_sum_df, f"Total Sum Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(total_sum_df, f"Total Sum Distribution of {selected_value}"))
     with st.expander("📊 Total Sum Analysis Insights", expanded=True):
@@ -139,7 +133,7 @@ def create_percentage_tab(pct_df, selected_value, selected_filter):
     """Creates and populates the Percentage Distribution tab"""
     st.write(f"#### Percentage Distribution of {selected_value}")
     pct_df = (add_total_row(pct_df.round(2)).applymap(lambda x: f"{x}%"))
-    st.write(pct_df)
+    st.dataframe(pct_df, use_container_width=True)
     st.plotly_chart(create_area_chart(pct_df, f"Percentage Distribution of {selected_value} Over Time"))
     st.plotly_chart(create_bar_chart(pct_df, f"Percentage Distribution by Category"))
     with st.expander("📊 Percentage Analysis Insights", expanded=True):
@@ -151,7 +145,7 @@ def create_average_tab(avg_df, selected_value, selected_filter):
     """Creates and populates the Average Analysis tab"""
     st.write(f"#### Average Analysis of {selected_value}")
     avg_df = (add_total_row(avg_df.round(2)))
-    st.write(avg_df)
+    st.dataframe(avg_df, use_container_width=True)
     st.plotly_chart(create_line_chart(avg_df, f"Average Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(avg_df, f"Average Distribution by Category"))
     with st.expander("📊 Average Analysis Insights", expanded=True):
@@ -177,7 +171,7 @@ def create_growth_tab(growth_df, selected_value, selected_filter):
     
     formatted_df = result_df.applymap(format_percentage)
     st.write(f"#### Year-over-Year Growth of {selected_value} (%)")
-    st.write(formatted_df)
+    st.dataframe(formatted_df, use_container_width=True)
     st.plotly_chart(create_bar_chart(growth_df, f"Growth Rate by Category"))
     fig_heatmap = px.imshow(
         growth_df,
@@ -200,7 +194,7 @@ def create_growth_tab(growth_df, selected_value, selected_filter):
 def create_count_tab(count_df, selected_value, selected_filter):
     """Creates and populates the Count Analysis tab"""
     st.write(f"#### Count Analysis of {selected_value}")
-    st.write(add_total_row(count_df))
+    st.dataframe(add_total_row(count_df), use_container_width=True)
     st.plotly_chart(create_line_chart(count_df, f"Count Trend of {selected_value}"))
     st.plotly_chart(create_bar_chart(count_df, f"Count Distribution by Category"))
     with st.expander("📊 Count Analysis Insights", expanded=True):
@@ -214,7 +208,7 @@ def create_concentration_tab(concentration_df, value_df, selected_value, selecte
     
     with subtab1:
         st.write(f"#### Concentration Analysis of {selected_value} (%)")
-        st.write(add_total_row(concentration_df.round(2)).applymap(lambda x: f"{x}%"))
+        st.dataframe(add_total_row(concentration_df.round(2)).applymap(lambda x: f"{x}%"), use_container_width=True)
         st.plotly_chart(create_area_chart(concentration_df, f"Concentration Over Time"))
         
         if len(concentration_df.columns) > 0:
@@ -250,7 +244,7 @@ def create_top_customers_subtab(value_df):
     summary_df = create_top_n_table(top_n_results)
     
     st.write("##### Summary of Top Customer Concentration")
-    st.write(summary_df)
+    st.dataframe(summary_df, use_container_width=True)
     
     fig_top_n = px.bar(
         summary_df,
@@ -392,7 +386,7 @@ def create_bridge_tab(value_df, selected_value, selected_time):
     for col in display_df.columns[1:]:
         display_df[col] = display_df[col].apply(lambda x: f"{x:,.2f}" if pd.notnull(x) else '')
     
-    st.dataframe(display_df, hide_index=True)
+    st.dataframe(display_df,hide_index=True, use_container_width=True)
     
     latest_period = bridge_df['Period'].unique()[-1]
     latest_period_data = bridge_df[
@@ -469,6 +463,7 @@ def create_bridge_tab(value_df, selected_value, selected_time):
             bridge_insights = generate_tab_insights(latest_data, "bridge", selected_value, selected_time)
             st.write(bridge_insights)
 
+
 def create_snowball_tab(value_df, selected_value, selected_time):
     """Creates and populates the Snowball Analysis tab with customer movement metrics"""
     st.write(f"#### Snowball Analysis of {selected_value}")
@@ -533,7 +528,7 @@ def create_snowball_tab(value_df, selected_value, selected_time):
     
     #Display the metrics table
     st.write("##### Customer Movement Analysis")
-    st.write(metrics_df.set_index('Metric'))
+    st.dataframe(metrics_df.set_index('Metric'), use_container_width= True)
     
     #Create waterfall chart showing customer movement for the latest period
     latest_period = periods[-1]
@@ -654,7 +649,7 @@ def create_dollar_retention_tab(value_df, selected_value, selected_time):
     
     #Display the metrics table
     st.write("##### Dollar Value Movement Analysis")
-    st.write(metrics_df.set_index('Metric'))
+    st.dataframe(metrics_df.set_index('Metric') , use_container_width= True)
     
     #Create waterfall chart showing dollar movement for the latest period
     latest_period = periods[-1]
@@ -803,7 +798,7 @@ def create_metrics_tab(value_df, selected_value, selected_time):
     
     #Display the metrics table
     st.write("##### Key Metrics Analysis")
-    st.dataframe(metrics_df)
+    st.dataframe(metrics_df, use_container_width= True)
     
     #Generate insights
     with st.expander("📊 Metrics Analysis Insights", expanded=True):
@@ -855,7 +850,7 @@ def create_values_cohort_tab(value_df, selected_value, selected_time):
 
     #Display the cohort table
     st.write("##### Cohort Value Analysis")
-    st.write(cohort_df)
+    st.dataframe(cohort_df, use_container_width=True)
 
     #Create heatmap visualization
     numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=years)
@@ -925,7 +920,7 @@ def create_count_cohort_tab(value_df, selected_value, selected_time):
 
     #Display the cohort table
     st.write("##### Customer Count by Cohort")
-    st.write(cohort_df)
+    st.dataframe(cohort_df, use_container_width=True)
 
     # Create heatmap visualization
     numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
@@ -1013,7 +1008,7 @@ def create_average_cohort_tab(value_df, selected_value, selected_time):
 
     #Display the cohort table
     st.write("##### Average Value by Cohort")
-    st.write(display_df)
+    st.dataframe(display_df, use_container_width=True)
 
     #Create heatmap visualization
     numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
@@ -1083,7 +1078,7 @@ def create_lost_dollars_cohort_tab(value_df, selected_value, selected_time):
         )
 
     st.write("##### Lost Dollars by Cohort")
-    st.write(lost_df)
+    st.dataframe(lost_df, use_container_width=True)
 
     numeric_lost_df = pd.DataFrame(index=lost_df.index, columns=periods)
 
@@ -1160,7 +1155,7 @@ def create_dollar_decreases_cohort_tab(value_df, selected_value, selected_time):
 
     #Display the cohort table
     st.write("##### Dollar Value Decrease by Cohort")
-    st.write(cohort_df)
+    st.dataframe(cohort_df, use_container_width=True)
 
     #Create heatmap visualization
     numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
@@ -1235,7 +1230,7 @@ def create_dollar_increases_cohort_tab(value_df, selected_value, selected_time):
 
     #Display table
     st.write("##### Value Increases by Cohort")
-    st.write(increase_df)
+    st.dataframe(increase_df, use_container_width=True)
 
     #Create heatmap
     numeric_increase_df = pd.DataFrame(index=increase_df.index, columns=periods)
@@ -1309,7 +1304,7 @@ def create_lost_cohort_tab(value_df, selected_value,selected_filter, selected_ti
 
     #Display the cohort table
     st.write(f"##### Lost {selected_filter} by Cohort")
-    st.write(cohort_df)
+    st.dataframe(cohort_df, use_container_width=True)
 
     #Create heatmap visualization
     numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
@@ -1376,7 +1371,7 @@ def create_retention_cohort_tab(value_df, selected_value, selected_filter, selec
 
     #Display the cohort table
     st.write(f"##### Lost {selected_filter} Retention Rates by Cohort")
-    st.write(cohort_df)
+    st.dataframe(cohort_df, use_container_width=True)
 
     #Create heatmap visualization
     numeric_cohort_df = pd.DataFrame(index=cohort_df.index, columns=periods)
