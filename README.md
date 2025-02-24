@@ -1,4 +1,4 @@
-# DDMind 
+# DDMind.ai
 
 ## 📊 Overview
 
@@ -10,7 +10,6 @@
 - **Data Cleaning**: Handles missing values, outliers, and data inconsistencies.
 - **Data Processing**: Transforms raw data into structured formats.
 - **Chart Generation**: Produces dynamic visualizations for better data interpretation.
-- **Backup System**: Ensures data integrity with automatic backups.
 
 ## 🏗️ Project Structure
 
